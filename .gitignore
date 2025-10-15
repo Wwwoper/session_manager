@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Session Manager specific
+.session-manager/
+PROJECT.md
+.context/
