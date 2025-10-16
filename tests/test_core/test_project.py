@@ -3,10 +3,8 @@ Tests for core/project.py
 """
 
 import pytest
-from pathlib import Path
-from datetime import datetime
 
-from session_manager.core.project import Project, ProjectError
+from session_manager.core.project import Project
 
 
 class TestProjectInitialization:

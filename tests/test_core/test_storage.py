@@ -4,7 +4,6 @@ Tests for core/storage.py
 
 import pytest
 import json
-from pathlib import Path
 
 from session_manager.core.storage import Storage, StorageError
 

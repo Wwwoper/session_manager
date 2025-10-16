@@ -3,11 +3,9 @@ Tests for core/project_registry.py
 """
 
 import pytest
-from pathlib import Path
 
 from session_manager.core.project_registry import ProjectRegistry
 from session_manager.core.config import GlobalConfig, ConfigError
-from session_manager.core.project import Project, ProjectError
 
 
 class TestProjectRegistryInitialization:
@@ -74,7 +72,7 @@ class TestProjectRegistryAdd:
         project_path = tmp_path / "myproject"
         project_path.mkdir()
         
-        project = registry.add("myproject", str(project_path), alias="mp")
+        registry.add("myproject", str(project_path), alias="mp")
         
         assert registry.exists("myproject")
         assert registry.exists("mp")  # Can find by alias

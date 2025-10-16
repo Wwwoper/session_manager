@@ -2,10 +2,7 @@
 Tests for utils/paths.py
 """
 
-import pytest
 from pathlib import Path
-import tempfile
-import shutil
 
 from session_manager.utils.paths import (
     get_storage_dir,
@@ -16,7 +13,6 @@ from session_manager.utils.paths import (
     get_sessions_file,
     get_project_md_file,
     ensure_directories,
-    ensure_storage_structure,
     ensure_project_structure,
     find_git_root,
     is_valid_project_path,
