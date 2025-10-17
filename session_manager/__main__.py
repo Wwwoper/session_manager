@@ -4,10 +4,15 @@ Session Manager - Main entry point
 """
 
 import sys
-from typing import List
+from pathlib import Path
+
+from .core.config import GlobalConfig, ConfigError
+from .core.project_registry import ProjectRegistry
+from .cli.commands import CLI
+from .utils.formatters import print_error, print_warning
 
 
-def main(args: List[str] = None) -> int:
+def main(args: list = None) -> int:
     """
     Main entry point for Session Manager CLI
     
@@ -20,47 +25,32 @@ def main(args: List[str] = None) -> int:
     if args is None:
         args = sys.argv[1:]
     
-    # Временная заглушка - показываем что команда работает
-    print("🚀 Session Manager v0.1.0")
-    print()
-    
-    if not args:
-        print("Использование: session <command> [options]")
-        print()
-        print("Доступные команды:")
-        print("  project add <n> <path>    Добавить проект")
-        print("  project list              Список проектов")
-        print("  project remove <n>        Удалить проект")
-        print("  project info <n>          Информация о проекте")
-        print()
-        print("  start [project]           Начать сессию")
-        print("  end [project]             Завершить сессию")
-        print("  status [project]          Показать статус")
-        print("  history [project]         История сессий")
-        print()
-        print("  version                   Показать версию")
-        print("  help                      Показать эту справку")
-        print()
-        print("⚠️  Функциональность пока не реализована (MVP в разработке)")
-        return 0
-    
-    command = args[0].lower()
-    
-    if command in ("version", "-v", "--version"):
-        print("Session Manager version 0.1.0")
-        print("Python:", sys.version.split()[0])
-        return 0
-    
-    if command in ("help", "-h", "--help"):
-        main([])  # Показываем справку
-        return 0
-    
-    # Пока что все остальные команды не реализованы
-    print(f"❌ Команда '{command}' пока не реализована")
-    print("   MVP находится в разработке")
-    print()
-    print("Запустите 'session help' для списка команд")
-    return 1
+    try:
+        # Initialize configuration
+        config = GlobalConfig()
+        config.load()
+        
+        # Initialize project registry
+        registry = ProjectRegistry(config)
+        
+        # Initialize CLI
+        cli = CLI(config, registry)
+        
+        # Run command
+        return cli.run(args)
+        
+    except ConfigError as e:
+        print_error(f"Configuration error: {e}")
+        return 1
+    except KeyboardInterrupt:
+        print("\n")
+        print_warning("Interrupted by user")
+        return 130
+    except Exception as e:
+        print_error(f"Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
 
 
 if __name__ == "__main__":
