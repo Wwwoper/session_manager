@@ -3,7 +3,6 @@ Tests for cli/commands.py
 """
 
 import pytest
-from pathlib import Path
 
 from session_manager.core.config import GlobalConfig
 from session_manager.core.project_registry import ProjectRegistry

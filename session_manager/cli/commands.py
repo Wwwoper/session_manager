@@ -17,8 +17,8 @@ from ..integrations.tests import TestsIntegration
 from ..integrations.github import GitHubIntegration
 from ..utils.formatters import (
     print_success, print_error, print_warning, print_info,
-    print_section, print_subsection, format_duration, format_timestamp,
-    format_table, format_project_list, format_session_summary, format_stats,
+    print_subsection, format_duration, format_timestamp,
+    format_table, format_stats,
     print_header
 )
 

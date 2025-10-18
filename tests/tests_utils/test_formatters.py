@@ -2,8 +2,6 @@
 Tests for utils/formatters.py
 """
 
-import pytest
-from datetime import datetime
 
 from session_manager.utils.formatters import (
     format_duration,
@@ -260,3 +258,137 @@ class TestWrapText:
         
         # Should still return the word even if it's longer
         assert "verylongword" in result
+
+
+class TestPrintFunctions:
+    """Test print functions"""
+    
+    def test_print_success(self, capsys):
+        """Test print_success"""
+        from session_manager.utils.formatters import print_success
+        
+        print_success("Test message")
+        
+        captured = capsys.readouterr()
+        assert "✅" in captured.out
+        assert "Test message" in captured.out
+    
+    def test_print_warning(self, capsys):
+        """Test print_warning"""
+        from session_manager.utils.formatters import print_warning
+        
+        print_warning("Warning message")
+        
+        captured = capsys.readouterr()
+        assert "⚠️" in captured.out
+        assert "Warning message" in captured.out
+    
+    def test_print_error(self, capsys):
+        """Test print_error"""
+        from session_manager.utils.formatters import print_error
+        
+        print_error("Error message")
+        
+        captured = capsys.readouterr()
+        assert "❌" in captured.out
+        assert "Error message" in captured.out
+    
+    def test_print_info(self, capsys):
+        """Test print_info"""
+        from session_manager.utils.formatters import print_info
+        
+        print_info("Info message")
+        
+        captured = capsys.readouterr()
+        assert "ℹ️" in captured.out
+        assert "Info message" in captured.out
+    
+    def test_print_section(self, capsys):
+        """Test print_section"""
+        from session_manager.utils.formatters import print_section
+        
+        print_section("Section Title")
+        
+        captured = capsys.readouterr()
+        assert "Section Title" in captured.out
+        assert "=" in captured.out
+    
+    def test_print_subsection(self, capsys):
+        """Test print_subsection"""
+        from session_manager.utils.formatters import print_subsection
+        
+        print_subsection("Subsection")
+        
+        captured = capsys.readouterr()
+        assert "Subsection" in captured.out
+        assert "-" in captured.out
+    
+    def test_print_header(self, capsys):
+        """Test print_header"""
+        from session_manager.utils.formatters import print_header
+        
+        print_header("Header Text")
+        
+        captured = capsys.readouterr()
+        assert "Header Text" in captured.out
+
+
+class TestFormatSessionSummary:
+    """Test session summary formatting"""
+    
+    def test_basic_summary(self):
+        """Test basic session summary"""
+        from session_manager.utils.formatters import format_session_summary
+        
+        session = {
+            "description": "Test session",
+            "start_time": "2025-01-15T10:00:00",
+            "end_time": "2025-01-15T11:00:00",
+            "duration": 3600,
+        }
+        
+        result = format_session_summary(session)
+        
+        assert "Test session" in result
+        assert "1h" in result
+    
+    def test_summary_with_git(self):
+        """Test summary with git info"""
+        from session_manager.utils.formatters import format_session_summary
+        
+        session = {
+            "branch": "main",
+            "last_commit": "abc123 Initial",
+        }
+        
+        result = format_session_summary(session)
+        
+        assert "main" in result
+        assert "abc123" in result
+
+
+class TestFormatProjectList:
+    """Test project list formatting"""
+    
+    def test_empty_list(self):
+        """Test empty project list"""
+        from session_manager.utils.formatters import format_project_list
+        
+        result = format_project_list([])
+        
+        assert "No projects" in result
+    
+    def test_project_list(self):
+        """Test project list formatting"""
+        from session_manager.utils.formatters import format_project_list
+        
+        projects = [
+            {"name": "project1", "path": "/path/to/project1"},
+            {"name": "project2", "path": "/path/to/project2", "alias": "p2"},
+        ]
+        
+        result = format_project_list(projects)
+        
+        assert "project1" in result
+        assert "project2" in result
+        assert "p2" in result

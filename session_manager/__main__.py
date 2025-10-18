@@ -4,7 +4,6 @@ Session Manager - Main entry point
 """
 
 import sys
-from pathlib import Path
 
 from .core.config import GlobalConfig, ConfigError
 from .core.project_registry import ProjectRegistry
