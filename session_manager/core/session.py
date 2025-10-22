@@ -1,26 +1,19 @@
 """
-Session management for Session Manager
-
-Handles session lifecycle: start, end, tracking, and history.
+Управление сеансами для Session Manager
+Обрабатывает жизненный цикл сеанса: начало, завершение, отслеживание и историю.
 """
-
 import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-
 from .project import Project, ProjectError
-
 
 class SessionError(Exception):
     """Base exception for session-related errors"""
-
     pass
-
 
 class SessionManager:
     """
     Manages work sessions for a project.
-
     Tracks session start/end times, duration, and metadata.
     Integrates with context management for saving work state.
     """
@@ -126,7 +119,6 @@ class SessionManager:
         # Save updated session
         try:
             data = self.project.get_sessions_data()
-
             # Find and update the session
             for i, session in enumerate(data["sessions"]):
                 if session["id"] == active["id"]:
@@ -135,7 +127,6 @@ class SessionManager:
 
             # Clear active session
             data["active_session"] = None
-
             self.project.save_sessions_data(data)
         except ProjectError as e:
             raise SessionError(f"Failed to end session: {e}")
@@ -163,7 +154,6 @@ class SessionManager:
 
             # Active session ID exists but session not found (data corruption)
             return None
-
         except ProjectError:
             return None
 
@@ -190,7 +180,6 @@ class SessionManager:
             )
 
             return sorted_sessions[:limit]
-
         except ProjectError:
             return []
 
@@ -249,7 +238,6 @@ class SessionManager:
                 "longest_session": max(durations),
                 "shortest_session": min(durations),
             }
-
         except ProjectError:
             return {
                 "total_sessions": 0,
@@ -276,9 +264,7 @@ class SessionManager:
             for session in sessions:
                 if session.get("id") == session_id:
                     return session
-
             return None
-
         except ProjectError:
             return None
 
@@ -313,12 +299,9 @@ class SessionManager:
                         session["last_commit"] = last_commit
                     if snapshot_file is not None:
                         session["snapshot_file"] = snapshot_file
-
                     self.project.save_sessions_data(data)
                     return True
-
             return False
-
         except ProjectError:
             return False
 
@@ -340,16 +323,12 @@ class SessionManager:
             for i, session in enumerate(sessions):
                 if session.get("id") == session_id:
                     sessions.pop(i)
-
                     # Clear active session if it was the deleted one
                     if data.get("active_session") == session_id:
                         data["active_session"] = None
-
                     self.project.save_sessions_data(data)
                     return True
-
             return False
-
         except ProjectError:
             return False
 
@@ -361,7 +340,6 @@ class SessionManager:
             List of today's sessions
         """
         today = datetime.now().date()
-
         try:
             data = self.project.get_sessions_data()
             sessions = data.get("sessions", [])
@@ -375,7 +353,6 @@ class SessionManager:
                         today_sessions.append(session)
 
             return today_sessions
-
         except ProjectError:
             return []
 
@@ -387,10 +364,8 @@ class SessionManager:
             Total seconds spent in sessions today
         """
         today_sessions = self.get_today_sessions()
-
         total = 0
         for session in today_sessions:
             if session.get("duration"):
                 total += session["duration"]
-
         return total
