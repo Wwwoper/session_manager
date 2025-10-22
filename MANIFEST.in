@@ -1,0 +1,29 @@
+# MANIFEST.in
+# Определяет, какие файлы включать в дистрибутив
+
+# Включить документацию
+include README.md
+include LICENSE
+include requirements.txt
+include session-manager-mvp-checklist*.md
+
+# Включить конфигурационные файлы
+include setup.py
+include pyproject.toml
+
+# Исключить тесты из дистрибутива
+recursive-exclude tests *
+recursive-exclude tests .*
+
+# Исключить файлы разработки
+exclude .gitignore
+exclude .flake8
+exclude .coverage
+exclude pytest.ini
+exclude mypy.ini
+
+# Исключить временные файлы
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.swp
+global-exclude .DS_Store

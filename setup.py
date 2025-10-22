@@ -1,29 +1,40 @@
 #!/usr/bin/env python3
 """
-Setup configuration for Session Manager
+Setup script for Session Manager
 """
 
 from setuptools import setup, find_packages
 from pathlib import Path
 
-# Read the README file for long description
+# Read the README file
 readme_file = Path(__file__).parent / "README.md"
-long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists() else ""
+long_description = (
+    readme_file.read_text(encoding="utf-8") if readme_file.exists() else ""
+)
+
+# Read version from __init__.py
+version = "0.1.0"
+init_file = Path(__file__).parent / "session_manager" / "__init__.py"
+if init_file.exists():
+    for line in init_file.read_text(encoding="utf-8").splitlines():
+        if line.startswith("__version__"):
+            version = line.split("=")[1].strip().strip('"').strip("'")
+            break
 
 setup(
     name="session-manager",
-    version="0.1.0",
-    author="Your Name",
+    version=version,
+    author="Wwwoper",
     author_email="your.email@example.com",
-    description="Smart session manager for developers - track time, save context, and integrate with your workflow",
+    description="Умный трекер сессий работы с сохранением контекста для разработчиков",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Wwwoper/session-manager",
+    url="https://github.com/yourusername/session-manager",
     packages=find_packages(exclude=["tests", "tests.*"]),
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Software Development :: Version Control",
         "Topic :: Utilities",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
@@ -37,8 +48,7 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        # Только стандартная библиотека для MVP
-        # Никаких внешних зависимостей
+        # Нет жестких зависимостей - только стандартная библиотека!
     ],
     extras_require={
         "dev": [
@@ -54,9 +64,12 @@ setup(
             "session=session_manager.__main__:main",
         ],
     },
-    keywords="session manager time tracking context git productivity development",
+    keywords="session time-tracking context development workflow git productivity",
     project_urls={
         "Bug Reports": "https://github.com/Wwwoper/session-manager/issues",
         "Source": "https://github.com/Wwwoper/session-manager",
+        "Documentation": "https://github.com/Wwwoper/session-manager#readme",
     },
+    include_package_data=True,
+    zip_safe=False,
 )
