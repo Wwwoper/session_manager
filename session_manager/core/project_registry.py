@@ -1,16 +1,12 @@
 """
-Project registry management
-
-Provides high-level operations for managing multiple projects.
+Управление реестром проектов
+Предоставляет высокоуровневые операции для управления несколькими проектами.
 """
-
 from typing import Optional, List, Dict
 from pathlib import Path
-
 from .config import GlobalConfig, ProjectInfo, ConfigError
 from .project import Project, ProjectError
 from ..utils.paths import detect_current_project
-
 
 class ProjectRegistry:
     """
