@@ -2,6 +2,7 @@
 Команды CLI для Session Manager
 Реализует все команды интерфейса командной строки.
 """
+
 from typing import List, Optional
 from pathlib import Path
 from ..core.config import GlobalConfig, ConfigError
@@ -13,11 +14,18 @@ from ..integrations.git import GitIntegration
 from ..integrations.tests import TestsIntegration
 from ..integrations.github import GitHubIntegration
 from ..utils.formatters import (
-    print_success, print_error, print_warning, print_info,
-    print_subsection, format_duration, format_timestamp,
-    format_table, format_stats,
-    print_header
+    print_success,
+    print_error,
+    print_warning,
+    print_info,
+    print_subsection,
+    format_duration,
+    format_timestamp,
+    format_table,
+    format_stats,
+    print_header,
 )
+
 
 class CLI:
     """
@@ -143,11 +151,15 @@ class CLI:
         # Подготовка данных для отображения
         projects_data = []
         for proj_info in projects_info:
-            projects_data.append({
-                "name": proj_info.name,
-                "alias": proj_info.alias or "-",
-                "path": str(proj_info.path)[:40] + "..." if len(str(proj_info.path)) > 40 else str(proj_info.path),
-            })
+            projects_data.append(
+                {
+                    "name": proj_info.name,
+                    "alias": proj_info.alias or "-",
+                    "path": str(proj_info.path)[:40] + "..."
+                    if len(str(proj_info.path)) > 40
+                    else str(proj_info.path),
+                }
+            )
 
         # Показать текущий проект
         if self.config.current_project:
@@ -171,7 +183,7 @@ class CLI:
 
         # Подтверждение удаления
         response = input(f"Remove project '{name}'? (y/N): ").strip().lower()
-        if response != 'y':
+        if response != "y":
             print_info("Cancelled")
             return 0
 
@@ -179,7 +191,7 @@ class CLI:
             success = self.registry.remove(name, delete_data=False)
             if success:
                 print_success(f"Removed project '{name}'")
-                print_info("Project data preserved in ~/.session-manager/")
+                print_info("Project data preserved in ~/.session_manager/")
                 return 0
             else:
                 print_error(f"Project '{name}' not found")
@@ -209,10 +221,12 @@ class CLI:
         print(f"Exists: {'✅' if info['exists'] else '❌'}")
         print(f"Has PROJECT.md: {'✅' if info['has_project_md'] else '❌'}")
         print(f"\nTotal Sessions: {info['total_sessions']}")
-        print(f"Active Session: {info['active_session'] if info['active_session'] else 'None'}")
+        print(
+            f"Active Session: {info['active_session'] if info['active_session'] else 'None'}"
+        )
         print(f"Total Snapshots: {info['total_snapshots']}")
 
-        if info['latest_snapshot']:
+        if info["latest_snapshot"]:
             print(f"Latest Snapshot: {info['latest_snapshot']}")
 
         return 0
@@ -266,7 +280,7 @@ class CLI:
                 sm.update_session_metadata(
                     session["id"],
                     branch=git.get_current_branch(),
-                    last_commit=git.get_last_commit()
+                    last_commit=git.get_last_commit(),
                 )
 
             print_success("Session started!")
@@ -313,7 +327,7 @@ class CLI:
                 print(changes[:200])  # Показать первые 200 символов
 
                 response = input("\nCreate a commit? (y/N): ").strip().lower()
-                if response == 'y':
+                if response == "y":
                     commit_msg = input("Commit message: ").strip()
                     if commit_msg:
                         git.add_all()
@@ -332,11 +346,7 @@ class CLI:
             test_info = tests.get_test_info() if tests.is_pytest_available() else None
 
             snapshot_path = cm.save_snapshot(
-                completed,
-                summary,
-                next_action,
-                git_info=git_info,
-                test_info=test_info
+                completed, summary, next_action, git_info=git_info, test_info=test_info
             )
 
             # Сгенерировать PROJECT.md
@@ -371,12 +381,13 @@ class CLI:
         if active:
             print_subsection("Active Session")
             print(f"Started: {format_timestamp(active['start_time'])}")
-            if active.get('description'):
+            if active.get("description"):
                 print(f"Description: {active['description']}")
 
             # Подсчитать текущую длительность
             from datetime import datetime
-            start = datetime.fromisoformat(active['start_time'])
+
+            start = datetime.fromisoformat(active["start_time"])
             duration = int((datetime.now() - start).total_seconds())
             print(f"Duration: {format_duration(duration)}")
         else:
@@ -396,7 +407,7 @@ class CLI:
     def cmd_history(self, args: List[str]) -> int:
         """Показать историю сессий."""
         # Получить проект
-        project_name = args[0] if args and not args[0].startswith('--') else None
+        project_name = args[0] if args and not args[0].startswith("--") else None
         project = self._resolve_project(project_name)
 
         if not project:
@@ -426,9 +437,9 @@ class CLI:
             print(f"   Started: {format_timestamp(session['start_time'])}")
             print(f"   Duration: {format_duration(session['duration'])}")
 
-            if session.get('summary'):
-                summary = session['summary'][:60]
-                if len(session['summary']) > 60:
+            if session.get("summary"):
+                summary = session["summary"][:60]
+                if len(session["summary"]) > 60:
                     summary += "..."
                 print(f"   Summary: {summary}")
 
@@ -475,4 +486,137 @@ class CLI:
         # Попробовать автоопределение
         project = self.registry.detect_current()
         if project:
-            print_info(f"Auto-detected project:
+            print_info(f"Auto-detected project: {project.name}")
+            return project
+
+        print_error("No project specified and couldn't auto-detect")
+        print_info("Specify project: session start <project-name>")
+        print_info("Or add current directory: session project add <name> .")
+        return None
+
+    def _show_last_context(self, project: Project) -> None:
+        """Показать последний сохраненный контекст."""
+        cm = ContextManager(project)
+        next_action = cm.get_next_action_from_project_md()
+
+        if next_action:
+            print_subsection("📌 Next Action")
+            print(f"   {next_action}\n")
+
+    def _show_git_status(self, project: Project) -> None:
+        """Показать статус git."""
+        git = GitIntegration(project.path)
+
+        if not git.is_git_repo():
+            return
+
+        print_subsection("🌿 Git Status")
+
+        branch = git.get_current_branch()
+        if branch:
+            print(f"   Branch: {branch}")
+
+        commit = git.get_last_commit()
+        if commit:
+            print(f"   Last Commit: {commit}")
+
+        if git.has_uncommitted_changes():
+            print("   ⚠️  Uncommitted changes detected")
+        else:
+            print("   ✅ Working directory clean")
+
+        print()
+
+    def _show_github_issues(self, project: Project) -> None:
+        """Показать задачи GitHub."""
+        gh = GitHubIntegration(project.path)
+
+        if not gh.is_github_repo():
+            return
+
+        issues = gh.get_open_issues(limit=3)
+
+        if issues:
+            print_subsection("📋 Open Issues")
+            summary = gh.format_issues_summary(issues)
+            print(summary)
+            print()
+
+    def _show_test_status(self, project: Project) -> None:
+        """Показать статус тестов."""
+        tests = TestsIntegration(project.path)
+
+        if not tests.is_pytest_available():
+            return
+
+        print_subsection("🧪 Running Tests...")
+
+        result = tests.run_tests(timeout=15, verbose=False)
+
+        if result["success"]:
+            print(f"   ✅ {result['summary']}")
+        else:
+            print(f"   ❌ {result['summary']}")
+
+        print()
+
+    # ==================== Команды информации ====================
+
+    def show_help(self, args: List[str] = None) -> int:
+        """Показать справочную информацию."""
+        print_header("Session Manager - Справка")
+
+        print("ИСПОЛЬЗОВАНИЕ:")
+        print("  session <команда> [опции]\n")
+
+        print("КОМАНДЫ ПРОЕКТОВ:")
+        print("  project add <имя> <путь> [--alias <псевдоним>]")
+        print("    Добавить новый проект")
+        print("  project list")
+        print("    Список всех проектов")
+        print("  project remove <имя>")
+        print("    Удалить проект")
+        print("  project info <имя>")
+        print("    Показать информацию о проекте\n")
+
+        print("КОМАНДЫ СЕССИЙ:")
+        print("  start [проект] [описание]")
+        print("    Начать новую сессию")
+        print("  end [проект]")
+        print("    Завершить активную сессию")
+        print("  status [проект]")
+        print("    Показать текущий статус")
+        print("  history [проект] [--limit N]")
+        print("    Показать историю сессий")
+        print("  stats [проект]")
+        print("    Показать статистику сессий\n")
+
+        print("ДРУГИЕ КОМАНДЫ:")
+        print("  help")
+        print("    Показать эту справку")
+        print("  version")
+        print("    Показать версию\n")
+
+        print("ПРИМЕРЫ:")
+        print("  # Добавить проект")
+        print("  session project add myapp /path/to/myapp --alias ma\n")
+
+        print("  # Начать работу")
+        print("  session start myapp\n")
+
+        print("  # Завершить сессию")
+        print("  session end\n")
+
+        print("  # Проверить статус")
+        print("  session status\n")
+
+        return 0
+
+    def show_version(self, args: List[str] = None) -> int:
+        """Показать информацию о версии."""
+        from .. import __version__
+
+        print(f"Session Manager v{__version__}")
+        print("Smart session tracking for developers")
+
+        return 0
