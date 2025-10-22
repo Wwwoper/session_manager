@@ -1,12 +1,9 @@
 """
-Project representation and management
-
-Handles individual project operations and file management.
+Представление и управление проектом
+Обрабатывает операции с отдельными проектами и управление файлами.
 """
-
 from pathlib import Path
 from typing import Optional
-
 from ..utils.paths import (
     get_project_dir,
     get_sessions_file,
@@ -15,13 +12,9 @@ from ..utils.paths import (
     ensure_project_structure,
 )
 from .storage import Storage, StorageError
-
-
 class ProjectError(Exception):
     """Base exception for project-related errors"""
     pass
-
-
 class Project:
     """
     Represents a single project in Session Manager.
