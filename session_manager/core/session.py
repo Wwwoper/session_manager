@@ -2,67 +2,71 @@
 Управление сеансами для Session Manager
 Обрабатывает жизненный цикл сеанса: начало, завершение, отслеживание и историю.
 """
+
 import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from .project import Project, ProjectError
 
+
 class SessionError(Exception):
-    """Base exception for session-related errors"""
+    """Базовое исключение для ошибок, связанных с сеансами"""
+
     pass
+
 
 class SessionManager:
     """
-    Manages work sessions for a project.
-    Tracks session start/end times, duration, and metadata.
-    Integrates with context management for saving work state.
+    Управляет рабочими сеансами для проекта.
+    Отслеживает время начала/окончания сеанса, продолжительность и метаданные.
+    Интегрируется с управлением контекстом для сохранения состояния работы.
     """
 
     def __init__(self, project: Project):
         """
-        Initialize session manager for a project.
+        Инициализировать менеджер сеансов для проекта.
 
         Args:
-            project: Project instance to manage sessions for
+            project: Экземпляр проекта для управления сеансами
         """
         self.project = project
         self._ensure_sessions_file()
 
     def _ensure_sessions_file(self) -> None:
-        """Ensure sessions file exists with proper structure"""
+        """Убедиться, что файл сеансов существует с правильной структурой"""
         try:
             data = self.project.get_sessions_data()
-            # Ensure proper structure
+            # Обеспечить правильную структуру
             if "sessions" not in data:
                 data["sessions"] = []
             if "active_session" not in data:
                 data["active_session"] = None
             self.project.save_sessions_data(data)
         except ProjectError as e:
-            raise SessionError(f"Failed to initialize sessions file: {e}")
+            raise SessionError(f"Не удалось инициализировать файл сеансов: {e}")
 
     def start(self, description: str = "") -> Dict[str, Any]:
         """
-        Start a new session.
+        Начать новый сеанс.
 
         Args:
-            description: Optional description of what you're working on
+            description: Необязательное описание того, над чем вы работаете
 
         Returns:
-            Dictionary with session information
+            Словарь с информацией о сеансе
 
         Raises:
-            SessionError: If a session is already active
+            SessionError: Если сеанс уже активен
         """
-        # Check if there's already an active session
+        # Проверить, есть ли уже активный сеанс
         active = self.get_active()
         if active:
             raise SessionError(
-                f"Session already active (started at {active['start_time']}). "
-                "End it before starting a new one."
+                f"Сеанс уже активен (начат в {active['start_time']}). "
+                "Завершите его перед началом нового."
             )
 
-        # Create new session
+        # Создать новый сеанс
         session = {
             "id": str(uuid.uuid4()),
             "start_time": datetime.now().isoformat(),
@@ -76,69 +80,69 @@ class SessionManager:
             "snapshot_file": None,
         }
 
-        # Load and update sessions data
+        # Загрузить и обновить данные сеансов
         try:
             data = self.project.get_sessions_data()
             data["sessions"].append(session)
             data["active_session"] = session["id"]
             self.project.save_sessions_data(data)
         except ProjectError as e:
-            raise SessionError(f"Failed to start session: {e}")
+            raise SessionError(f"Не удалось начать сеанс: {e}")
 
         return session
 
     def end(self, summary: str = "", next_action: str = "") -> Dict[str, Any]:
         """
-        End the active session.
+        Завершить активный сеанс.
 
         Args:
-            summary: Summary of what was accomplished
-            next_action: Next action to take when resuming work
+            summary: Резюме проделанной работы
+            next_action: Следующее действие при возобновлении работы
 
         Returns:
-            Dictionary with completed session information
+            Словарь с информацией о завершенном сеансе
 
         Raises:
-            SessionError: If no active session exists
+            SessionError: Если активный сеанс не существует
         """
         active = self.get_active()
         if not active:
-            raise SessionError("No active session to end")
+            raise SessionError("Нет активного сеанса для завершения")
 
-        # Calculate duration
+        # Рассчитать продолжительность
         start_time = datetime.fromisoformat(active["start_time"])
         end_time = datetime.now()
         duration = int((end_time - start_time).total_seconds())
 
-        # Update session
+        # Обновить сеанс
         active["end_time"] = end_time.isoformat()
         active["duration"] = duration
         active["summary"] = summary
         active["next_action"] = next_action
 
-        # Save updated session
+        # Сохранить обновленный сеанс
         try:
             data = self.project.get_sessions_data()
-            # Find and update the session
+            # Найти и обновить сеанс
             for i, session in enumerate(data["sessions"]):
                 if session["id"] == active["id"]:
                     data["sessions"][i] = active
                     break
 
-            # Clear active session
+            # Очистить активный сеанс
             data["active_session"] = None
             self.project.save_sessions_data(data)
         except ProjectError as e:
-            raise SessionError(f"Failed to end session: {e}")
+            raise SessionError(f"Не удалось завершить сеанс: {e}")
 
         return active
 
     def get_active(self) -> Optional[Dict[str, Any]]:
         """
-        Get the currently active session.
+        Получить текущий активный сеанс.
 
         Returns:
-            Active session dictionary, or None if no active session
+            Словарь активного сеанса или None, если нет активного сеанса
         """
         try:
             data = self.project.get_sessions_data()
@@ -147,34 +151,34 @@ class SessionManager:
             if not active_id:
                 return None
 
-            # Find the active session
+            # Найти активный сеанс
             for session in data["sessions"]:
                 if session["id"] == active_id:
                     return session
 
-            # Active session ID exists but session not found (data corruption)
+            # ID активного сеанса существует, но сеанс не найден (повреждение данных)
             return None
         except ProjectError:
             return None
 
     def get_history(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
-        Get session history (most recent first).
+        Получить историю сеансов (самые последние первыми).
 
         Args:
-            limit: Maximum number of sessions to return
+            limit: Максимальное количество сеансов для возврата
 
         Returns:
-            List of session dictionaries
+            Список словарей сеансов
         """
         try:
             data = self.project.get_sessions_data()
             sessions = data.get("sessions", [])
 
-            # Filter completed sessions only
+            # Отфильтровать только завершенные сеансы
             completed = [s for s in sessions if s.get("end_time") is not None]
 
-            # Sort by start time (most recent first)
+            # Сортировать по времени начала (самые последние первыми)
             sorted_sessions = sorted(
                 completed, key=lambda s: s.get("start_time", ""), reverse=True
             )
@@ -185,10 +189,10 @@ class SessionManager:
 
     def get_all_sessions(self) -> List[Dict[str, Any]]:
         """
-        Get all sessions (completed and active).
+        Получить все сеансы (завершенные и активные).
 
         Returns:
-            List of all session dictionaries
+            Список всех словарей сеансов
         """
         try:
             data = self.project.get_sessions_data()
@@ -198,21 +202,21 @@ class SessionManager:
 
     def get_stats(self) -> Dict[str, Any]:
         """
-        Get statistics about sessions.
+        Получить статистику о сеансах.
 
         Returns:
-            Dictionary with session statistics:
-            - total_sessions: Total number of completed sessions
-            - total_time: Total time spent in seconds
-            - average_duration: Average session duration in seconds
-            - longest_session: Duration of longest session
-            - shortest_session: Duration of shortest session
+            Словарь со статистикой сеансов:
+            - total_sessions: Общее количество завершенных сеансов
+            - total_time: Общее время в секундах
+            - average_duration: Средняя продолжительность сеанса в секундах
+            - longest_session: Продолжительность самого длинного сеанса
+            - shortest_session: Продолжительность самого короткого сеанса
         """
         try:
             data = self.project.get_sessions_data()
             sessions = data.get("sessions", [])
 
-            # Filter completed sessions with duration
+            # Отфильтровать завершенные сеансы с продолжительностью
             completed = [
                 s
                 for s in sessions
@@ -249,13 +253,13 @@ class SessionManager:
 
     def get_session_by_id(self, session_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get a specific session by ID.
+        Получить конкретный сеанс по ID.
 
         Args:
-            session_id: Session UUID
+            session_id: UUID сеанса
 
         Returns:
-            Session dictionary, or None if not found
+            Словарь сеанса или None, если не найден
         """
         try:
             data = self.project.get_sessions_data()
@@ -276,16 +280,16 @@ class SessionManager:
         snapshot_file: Optional[str] = None,
     ) -> bool:
         """
-        Update metadata for a session.
+        Обновить метаданные для сеанса.
 
         Args:
-            session_id: Session UUID
-            branch: Git branch name
-            last_commit: Last git commit
-            snapshot_file: Path to snapshot file
+            session_id: UUID сеанса
+            branch: Имя ветки Git
+            last_commit: Последний коммит git
+            snapshot_file: Путь к файлу снимка
 
         Returns:
-            True if updated successfully, False if session not found
+            True, если успешно обновлено, False, если сеанс не найден
         """
         try:
             data = self.project.get_sessions_data()
@@ -307,23 +311,23 @@ class SessionManager:
 
     def delete_session(self, session_id: str) -> bool:
         """
-        Delete a session by ID.
+        Удалить сеанс по ID.
 
         Args:
-            session_id: Session UUID
+            session_id: UUID сеанса
 
         Returns:
-            True if deleted, False if not found
+            True, если удален, False, если не найден
         """
         try:
             data = self.project.get_sessions_data()
             sessions = data.get("sessions", [])
 
-            # Find and remove session
+            # Найти и удалить сеанс
             for i, session in enumerate(sessions):
                 if session.get("id") == session_id:
                     sessions.pop(i)
-                    # Clear active session if it was the deleted one
+                    # Очистить активный сеанс, если это был удаленный
                     if data.get("active_session") == session_id:
                         data["active_session"] = None
                     self.project.save_sessions_data(data)
@@ -334,10 +338,10 @@ class SessionManager:
 
     def get_today_sessions(self) -> List[Dict[str, Any]]:
         """
-        Get all sessions from today.
+        Получить все сеансы за сегодня.
 
         Returns:
-            List of today's sessions
+            Список сеансов за сегодня
         """
         today = datetime.now().date()
         try:
@@ -358,10 +362,10 @@ class SessionManager:
 
     def get_total_time_today(self) -> int:
         """
-        Get total time spent in sessions today.
+        Получить общее время, проведенное в сеансах за сегодня.
 
         Returns:
-            Total seconds spent in sessions today
+            Общее количество секунд, проведенное в сеансах за сегодня
         """
         today_sessions = self.get_today_sessions()
         total = 0

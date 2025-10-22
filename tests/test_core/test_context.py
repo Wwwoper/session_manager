@@ -177,7 +177,7 @@ class TestGenerateProjectMd:
 
         # Verify content
         content = context_manager.project.get_project_md_content()
-        assert "Next Action" in content
+        assert "Следующее действие" in content
         assert "Add parser tests" in content
         assert "Fixed parser bug" in content
 
@@ -187,7 +187,7 @@ class TestGenerateProjectMd:
             "id": "test-id",
             "start_time": "2025-01-15T10:00:00",
             "end_time": "2025-01-15T11:30:00",
-            "duration": 5400,  # 1h 30m
+            "duration": 5400,  # 1ч 30м
         }
 
         context_manager.generate_project_md(
@@ -195,7 +195,7 @@ class TestGenerateProjectMd:
         )
 
         content = context_manager.project.get_project_md_content()
-        assert "1h 30m" in content
+        assert "1ч 30м" in content
 
 
 class TestGetNextAction:
@@ -255,31 +255,31 @@ class TestFormatDuration:
         """Test formatting seconds"""
         formatted = context_manager._format_duration(45)
 
-        assert formatted == "45s"
+        assert formatted == "45с"
 
     def test_format_duration_minutes(self, context_manager):
         """Test formatting minutes"""
         formatted = context_manager._format_duration(180)
 
-        assert formatted == "3m"
+        assert formatted == "3м"
 
     def test_format_duration_minutes_seconds(self, context_manager):
         """Test formatting minutes and seconds"""
         formatted = context_manager._format_duration(150)
 
-        assert formatted == "2m 30s"
+        assert formatted == "2м 30с"
 
     def test_format_duration_hours(self, context_manager):
         """Test formatting hours"""
         formatted = context_manager._format_duration(3600)
 
-        assert formatted == "1h"
+        assert formatted == "1ч"
 
     def test_format_duration_hours_minutes(self, context_manager):
         """Test formatting hours and minutes"""
         formatted = context_manager._format_duration(5400)
 
-        assert formatted == "1h 30m"
+        assert formatted == "1ч 30м"
 
 
 class TestFormatSnapshot:
@@ -319,7 +319,7 @@ class TestFormatSnapshot:
         assert "test-id" in formatted
         assert "Work summary" in formatted
         assert "Next step" in formatted
-        assert "1h" in formatted
+        assert "1ч" in formatted
 
     def test_format_snapshot_with_git(self, context_manager):
         """Test snapshot formatting with git info"""
@@ -336,7 +336,7 @@ class TestFormatSnapshot:
 
         assert "feature/new" in formatted
         assert "abc123" in formatted
-        assert "clean" in formatted.lower()
+        assert "снимок контекста" in formatted.lower()
 
 
 class TestParseSnapshot:
@@ -359,19 +359,19 @@ class TestParseSnapshot:
         """Test parsing snapshot content"""
         content = """# Session Context Snapshot
 
-**Session ID:** test-123
+**ID сессии:** test-123
 
-## 📝 Summary
+## 📝 Резюме
 
-This is the summary
+Это резюме
 
-## 🎯 Next Action
+## 🎯 Следующее действие
 
-This is the next action
+Это следующее действие
 """
 
         parsed = context_manager._parse_snapshot(content)
 
         assert parsed["session_id"] == "test-123"
-        assert parsed["summary"] == "This is the summary"
-        assert parsed["next_action"] == "This is the next action"
+        assert parsed["summary"] == "Это резюме"
+        assert parsed["next_action"] == "Это следующее действие"
