@@ -29,7 +29,7 @@ setup(
     description="Умный трекер сессий работы с сохранением контекста для разработчиков",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/session-manager",
+    url="https://github.com/Wwwoper/session_manager.git",
     packages=find_packages(exclude=["tests", "tests.*"]),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -66,9 +66,9 @@ setup(
     },
     keywords="session time-tracking context development workflow git productivity",
     project_urls={
-        "Bug Reports": "https://github.com/Wwwoper/session-manager/issues",
-        "Source": "https://github.com/Wwwoper/session-manager",
-        "Documentation": "https://github.com/Wwwoper/session-manager#readme",
+        "Bug Reports": "https://github.com/Wwwoper/session_manager/issues",
+        "Source": "https://github.com/Wwwoper/session_manager",
+        "Documentation": "https://github.com/Wwwoper/session_manager#readme",
     },
     include_package_data=True,
     zip_safe=False,
