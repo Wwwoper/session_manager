@@ -53,6 +53,8 @@ pip install -e ".[dev]"
 # Использование pipx
 pipx install .
 
+# Удаление пакета 
+pipx uninstall session_manager
 ```
 После установки команда `session` будет доступна глобально в вашей системе.
 
