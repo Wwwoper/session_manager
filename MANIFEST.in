@@ -5,7 +5,7 @@
 include README.md
 include LICENSE
 include requirements.txt
-include session-manager-mvp-checklist*.md
+include session_manager-mvp-checklist*.md
 
 # Включить конфигурационные файлы
 include setup.py

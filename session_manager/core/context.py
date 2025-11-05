@@ -1,7 +1,7 @@
 """
-Context management for Session Manager
+Управление контекстом для Session Manager
 
-Handles context snapshots and PROJECT.md generation.
+Обрабатывает снимки контекста и генерацию PROJECT.md.
 """
 
 from datetime import datetime
@@ -12,27 +12,28 @@ from .project import Project, ProjectError
 
 
 class ContextError(Exception):
-    """Base exception for context-related errors"""
+    """Базовое исключение для ошибок, связанных с контекстом"""
+
     pass
 
 
 class ContextManager:
     """
-    Manages project context: snapshots and PROJECT.md.
-    
-    Creates snapshots of work sessions and generates PROJECT.md
-    with the latest context information.
+    Управляет контекстом проекта: снимки и PROJECT.md.
+
+    Создает снимки рабочих сессий и генерирует PROJECT.md
+    с последней информацией о контексте.
     """
-    
+
     def __init__(self, project: Project):
         """
-        Initialize context manager for a project.
-        
+        Инициализировать менеджер контекста для проекта.
+
         Args:
-            project: Project instance to manage context for
+            project: Экземпляр проекта для управления контекстом
         """
         self.project = project
-    
+
     def save_snapshot(
         self,
         session_data: Dict[str, Any],
@@ -42,61 +43,57 @@ class ContextManager:
         test_info: Optional[Dict] = None,
     ) -> str:
         """
-        Save a context snapshot.
-        
+        Сохранить снимок контекста.
+
         Args:
-            session_data: Session information
-            summary: Summary of what was done
-            next_action: Next action to take
-            git_info: Optional git information
-            test_info: Optional test information
-            
+            session_data: Информация о сессии
+            summary: Резюме проделанной работы
+            next_action: Следующее действие для выполнения
+            git_info: Необязательная информация git
+            test_info: Необязательная информация тестов
+
         Returns:
-            Path to the snapshot file
-            
+            Путь к файлу снимка
+
         Raises:
-            ContextError: If snapshot cannot be saved
+            ContextError: Если снимок не может быть сохранен
         """
-        # Generate timestamp for filename
+        # Сгенерировать метку времени для имени файла
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         snapshot_path = self.project.get_snapshot_path(timestamp)
-        
-        # Format snapshot content
+
+        # Форматировать содержимое снимка
         content = self._format_snapshot(
-            session_data,
-            summary,
-            next_action,
-            git_info,
-            test_info
+            session_data, summary, next_action, git_info, test_info
         )
-        
-        # Save snapshot
+
+        # Сохранить снимок
         try:
             snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-            snapshot_path.write_text(content, encoding='utf-8')
+            snapshot_path.write_text(content, encoding="utf-8")
         except OSError as e:
-            raise ContextError(f"Failed to save snapshot: {e}")
-        
+            raise ContextError(f"Не удалось сохранить снимок: {e}")
+
         return str(snapshot_path)
-    
+
     def load_last_snapshot(self) -> Optional[Dict[str, Any]]:
         """
-        Load the most recent snapshot.
-        
+        Загрузить самый последний снимок.
+
         Returns:
-            Dictionary with snapshot data, or None if no snapshots exist
+            Словарь с данными снимка или None, если снимков нет
         """
         latest = self.project.get_latest_snapshot()
-        
+
         if not latest:
             return None
-        
+
         try:
-            content = latest.read_text(encoding='utf-8')
+            content = latest.read_text(encoding="utf-8")
             return self._parse_snapshot(content)
         except OSError:
             return None
-    
+
     def generate_project_md(
         self,
         session_data: Dict[str, Any],
@@ -104,109 +101,109 @@ class ContextManager:
         next_action: str,
     ) -> None:
         """
-        Generate or update PROJECT.md with latest context.
-        
+        Сгенерировать или обновить PROJECT.md с последним контекстом.
+
         Args:
-            session_data: Session information
-            summary: Summary of last session
-            next_action: Next action to take
-            
+            session_data: Информация о сессии
+            summary: Резюме последней сессии
+            next_action: Следующее действие для выполнения
+
         Raises:
-            ContextError: If PROJECT.md cannot be updated
+            ContextError: Если PROJECT.md не может быть обновлен
         """
-        # Calculate session duration
+        # Рассчитать продолжительность сессии
         duration_str = "N/A"
         if session_data.get("duration"):
             duration = session_data["duration"]
             hours = duration // 3600
             minutes = (duration % 3600) // 60
             if hours > 0:
-                duration_str = f"{hours}h {minutes}m"
+                duration_str = f"{hours}ч {minutes}м"
             else:
-                duration_str = f"{minutes}m"
-        
-        # Format content
-        content = f"""# Project Context
+                duration_str = f"{minutes}м"
 
-**Last Updated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}  
-**Session Duration:** {duration_str}
+        # Форматировать содержимое
+        content = f"""# Контекст проекта
 
-## 🎯 Next Action
+**Последнее обновление:** {datetime.now().strftime("%Y-%m-%d %H:%M")}  
+**Продолжительность сессии:** {duration_str}
+
+## 🎯 Следующее действие
 
 {next_action}
 
-## 📝 Last Session Summary
+## 📝 Резюме последней сессии
 
 {summary}
 
 ---
 
-## Session Information
+## Информация о сессии
 
-- **Started:** {session_data.get('start_time', 'N/A')}
-- **Ended:** {session_data.get('end_time', 'N/A')}
-- **Branch:** {session_data.get('branch', 'N/A')}
-- **Last Commit:** {session_data.get('last_commit', 'N/A')}
+- **Начало:** {session_data.get("start_time", "N/A")}
+- **Конец:** {session_data.get("end_time", "N/A")}
+- **Ветка:** {session_data.get("branch", "N/A")}
+- **Последний коммит:** {session_data.get("last_commit", "N/A")}
 
 ---
 
-## Quick Commands
+## Быстрые команды
 
 ```bash
-# Start a new session
+# Начать новую сессию
 session start
 
-# End current session
+# Завершить текущую сессию
 session end
 
-# Check status
+# Проверить статус
 session status
 
-# View history
+# Просмотр истории
 session history
 ```
 
-## Tips
+## Советы
 
-- Review the **Next Action** above to quickly resume work
-- Check git branch and commit status before starting
-- Run tests to ensure everything works
-- Update this file at the end of each session
+- Просмотрите **Следующее действие** выше, чтобы быстро вернуться к работе
+- Проверьте статус ветки и коммита git перед началом
+- Запустите тесты, чтобы убедиться, что все работает
+- Обновите этот файл в конце каждой сессии
 """
-        
+
         try:
             self.project.update_project_md(content)
         except ProjectError as e:
-            raise ContextError(f"Failed to update PROJECT.md: {e}")
-    
+            raise ContextError(f"Не удалось обновить PROJECT.md: {e}")
+
     def get_next_action_from_project_md(self) -> Optional[str]:
         """
-        Extract the "Next Action" from PROJECT.md.
-        
+        Извлечь "Следующее действие" из PROJECT.md.
+
         Returns:
-            Next action text, or None if not found
+            Текст следующего действия или None, если не найдено
         """
         if not self.project.has_project_md():
             return None
-        
+
         try:
             content = self.project.get_project_md_content()
-            
-            # Look for "Next Action" section
+
+            # Искать раздел "Следующее действие"
             match = re.search(
-                r'## 🎯 Next Action\s*\n\s*\n(.+?)(?:\n\n##|\Z)',
+                r"## 🎯 Следующее действие\s*\n\s*\n(.+?)(?:\n\n##|\Z)",
                 content,
-                re.DOTALL
+                re.DOTALL,
             )
-            
+
             if match:
                 return match.group(1).strip()
-            
+
             return None
-            
+
         except ProjectError:
             return None
-    
+
     def _format_snapshot(
         self,
         session_data: Dict[str, Any],
@@ -216,148 +213,145 @@ session history
         test_info: Optional[Dict] = None,
     ) -> str:
         """
-        Format snapshot content as Markdown.
-        
+        Форматировать содержимое снимка как Markdown.
+
         Args:
-            session_data: Session information
-            summary: Session summary
-            next_action: Next action
-            git_info: Optional git information
-            test_info: Optional test information
-            
+            session_data: Информация о сессии
+            summary: Резюме сессии
+            next_action: Следующее действие
+            git_info: Необязательная информация git
+            test_info: Необязательная информация тестов
+
         Returns:
-            Formatted Markdown content
+            Отформатированное содержимое Markdown
         """
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        content = f"""# Session Context Snapshot
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-**Created:** {timestamp}  
-**Session ID:** {session_data.get('id', 'N/A')}
+        content = f"""# Снимок контекста сессии
 
----
-
-## 📋 Session Info
-
-- **Started:** {session_data.get('start_time', 'N/A')}
-- **Ended:** {session_data.get('end_time', 'N/A')}
-- **Duration:** {self._format_duration(session_data.get('duration', 0))}
-- **Description:** {session_data.get('description', 'N/A')}
+**Создан:** {timestamp}  
+**ID сессии:** {session_data.get("id", "N/A")}
 
 ---
 
-## 📝 Summary
+## 📋 Информация о сессии
 
-{summary if summary else '_No summary provided_'}
+- **Начало:** {session_data.get("start_time", "N/A")}
+- **Конец:** {session_data.get("end_time", "N/A")}
+- **Продолжительность:** {self._format_duration(session_data.get("duration", 0))}
+- **Описание:** {session_data.get("description", "N/A")}
 
 ---
 
-## 🎯 Next Action
+## 📝 Резюме
 
-{next_action if next_action else '_No next action specified_'}
+{summary if summary else "_Резюме не предоставлено_"}
+
+---
+
+## 🎯 Следующее действие
+
+{next_action if next_action else "_Следующее действие не указано_"}
+
 
 ---
 """
-        
-        # Add git information if available
+
+        # Добавить информацию git, если доступна
         if git_info:
             content += """
-## 🌿 Git Status
+## 🌿 Статус Git
 
 """
-            if git_info.get('branch'):
-                content += f"- **Branch:** `{git_info['branch']}`\n"
-            if git_info.get('last_commit'):
-                content += f"- **Last Commit:** `{git_info['last_commit']}`\n"
-            if git_info.get('uncommitted_changes'):
-                content += f"- **Uncommitted Changes:**\n```\n{git_info['uncommitted_changes']}\n```\n"
-            elif git_info.get('has_changes') is False:
-                content += "- **Status:** Working directory clean ✅\n"
-            
+            if git_info.get("branch"):
+                content += f"- **Ветка:** `{git_info['branch']}`\n"
+            if git_info.get("last_commit"):
+                content += f"- **Последний коммит:** `{git_info['last_commit']}`\n"
+            if git_info.get("uncommitted_changes"):
+                content += f"- **Незакоммиченные изменения:**\n```\n{git_info['uncommitted_changes']}\n```\n"
+            elif git_info.get("has_changes") is False:
+                content += "- **Статус:** Рабочий каталог чист ✅\n"
+
             content += "\n---\n"
-        
-        # Add test information if available
+
+        # Добавить информацию тестов, если доступна
         if test_info:
             content += """
-## 🧪 Test Status
+## 🧪 Статус тестов
 
 """
-            if test_info.get('summary'):
+            if test_info.get("summary"):
                 content += f"{test_info['summary']}\n"
-            
-            content += "\n---\n"
-        
-        content += """
-## 💡 Notes
 
-- Use this snapshot to quickly restore context
-- Review Next Action before starting work
-- Check git status for any uncommitted work
+            content += "\n---\n"
+
+        content += """
+## 💡 Заметки
+
+- Используйте этот снимок для быстрого восстановления контекста
+- Просмотрите Следующее действие перед началом работы
+- Проверьте статус git для любой незакоммиченной работы
 """
-        
+
         return content
-    
+
     def _parse_snapshot(self, content: str) -> Dict[str, Any]:
         """
-        Parse snapshot content into structured data.
-        
+        Разобрать содержимое снимка в структурированные данные.
+
         Args:
-            content: Snapshot Markdown content
-            
+            content: Содержимое снимка Markdown
+
         Returns:
-            Dictionary with parsed snapshot data
+            Словарь с разобранными данными снимка
         """
         data = {}
-        
-        # Extract session ID
-        session_id_match = re.search(r'\*\*Session ID:\*\* (.+)', content)
+
+        # Извлечь ID сессии
+        session_id_match = re.search(r"\*\*ID сессии:\*\* (.+)", content)
         if session_id_match:
-            data['session_id'] = session_id_match.group(1)
-        
-        # Extract summary
+            data["session_id"] = session_id_match.group(1)
+
+        # Извлечь резюме
         summary_match = re.search(
-            r'## 📝 Summary\s*\n\s*\n(.+?)(?:\n\n##|\Z)',
-            content,
-            re.DOTALL
+            r"## 📝 Резюме\s*\n\s*\n(.+?)(?:\n\n##|\Z)", content, re.DOTALL
         )
         if summary_match:
-            data['summary'] = summary_match.group(1).strip()
-        
-        # Extract next action
+            data["summary"] = summary_match.group(1).strip()
+
+        # Извлечь следующее действие
         next_action_match = re.search(
-            r'## 🎯 Next Action\s*\n\s*\n(.+?)(?:\n\n##|\Z)',
-            content,
-            re.DOTALL
+            r"## 🎯 Следующее действие\s*\n\s*\n(.+?)(?:\n\n##|\Z)", content, re.DOTALL
         )
         if next_action_match:
-            data['next_action'] = next_action_match.group(1).strip()
-        
+            data["next_action"] = next_action_match.group(1).strip()
+
         return data
-    
+
     def _format_duration(self, seconds: int) -> str:
         """
-        Format duration in a human-readable way.
-        
+        Форматировать продолжительность в удобочитаемом виде.
+
         Args:
-            seconds: Duration in seconds
-            
+            seconds: Продолжительность в секундах
+
         Returns:
-            Formatted duration string
+            Отформатированная строка продолжительности
         """
         if seconds < 60:
-            return f"{seconds}s"
-        
+            return f"{seconds}с"
+
         minutes = seconds // 60
         remaining_seconds = seconds % 60
-        
+
         if minutes < 60:
             if remaining_seconds > 0:
-                return f"{minutes}m {remaining_seconds}s"
-            return f"{minutes}m"
-        
+                return f"{minutes}м {remaining_seconds}с"
+            return f"{minutes}м"
+
         hours = minutes // 60
         remaining_minutes = minutes % 60
-        
+
         if remaining_minutes > 0:
-            return f"{hours}h {remaining_minutes}m"
-        return f"{hours}h"
+            return f"{hours}ч {remaining_minutes}м"
+        return f"{hours}ч"

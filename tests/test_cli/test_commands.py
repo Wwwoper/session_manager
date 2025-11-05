@@ -1,5 +1,5 @@
 """
-Tests for cli/commands.py
+Тесты для cli/commands.py
 """
 
 import pytest
@@ -10,190 +10,184 @@ from session_manager.cli.commands import CLI
 
 
 class TestCLIInit:
-    """Test CLI initialization"""
-    
+    """Тест инициализации CLI"""
+
     @pytest.fixture
     def cli(self, tmp_path, monkeypatch):
-        """Create a CLI instance"""
-        storage_dir = tmp_path / ".session-manager"
-        
+        """Создать экземпляр CLI"""
+        storage_dir = tmp_path / ".session_manager"
+
         monkeypatch.setattr(
             "session_manager.core.config.get_config_file",
-            lambda: storage_dir / "config.json"
+            lambda: storage_dir / "config.json",
         )
         monkeypatch.setattr(
-            "session_manager.core.config.ensure_storage_structure",
-            lambda: None
+            "session_manager.core.config.ensure_storage_structure", lambda: None
         )
         monkeypatch.setattr(
-            "session_manager.utils.paths.get_storage_dir",
-            lambda: storage_dir
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
         )
-        
+
         config = GlobalConfig()
         config.load()
         registry = ProjectRegistry(config)
-        
+
         return CLI(config, registry)
-    
+
     def test_init(self, cli):
-        """Test basic initialization"""
+        """Тест базовой инициализации"""
         assert cli.config is not None
         assert cli.registry is not None
 
 
 class TestCLIHelp:
-    """Test help commands"""
-    
+    """Тест команд справки"""
+
     @pytest.fixture
     def cli(self, tmp_path, monkeypatch):
-        """Create a CLI instance"""
-        storage_dir = tmp_path / ".session-manager"
-        
+        """Создать экземпляр CLI"""
+        storage_dir = tmp_path / ".session_manager"
+
         monkeypatch.setattr(
             "session_manager.core.config.get_config_file",
-            lambda: storage_dir / "config.json"
+            lambda: storage_dir / "config.json",
         )
         monkeypatch.setattr(
-            "session_manager.core.config.ensure_storage_structure",
-            lambda: None
+            "session_manager.core.config.ensure_storage_structure", lambda: None
         )
-        
+
         config = GlobalConfig()
         config.load()
         registry = ProjectRegistry(config)
-        
+
         return CLI(config, registry)
-    
+
     def test_show_help(self, cli, capsys):
-        """Test showing help"""
+        """Тест показа справки"""
         result = cli.show_help()
-        
+
         assert result == 0
-        
+
         captured = capsys.readouterr()
         assert "Session Manager" in captured.out
-        assert "USAGE" in captured.out
-    
+        assert "ИСПОЛЬЗОВАНИЕ" in captured.out
+
     def test_show_version(self, cli, capsys):
-        """Test showing version"""
+        """Тест показа версии"""
         result = cli.show_version()
-        
+
         assert result == 0
-        
+
         captured = capsys.readouterr()
         assert "Session Manager" in captured.out
 
 
 class TestCLIProjectCommands:
-    """Test project commands"""
-    
+    """Тест команд проекта"""
+
     @pytest.fixture
     def cli(self, tmp_path, monkeypatch):
-        """Create a CLI instance"""
-        storage_dir = tmp_path / ".session-manager"
-        
+        """Создать экземпляр CLI"""
+        storage_dir = tmp_path / ".session_manager"
+
         monkeypatch.setattr(
             "session_manager.core.config.get_config_file",
-            lambda: storage_dir / "config.json"
+            lambda: storage_dir / "config.json",
         )
         monkeypatch.setattr(
-            "session_manager.core.config.ensure_storage_structure",
-            lambda: None
+            "session_manager.core.config.ensure_storage_structure", lambda: None
         )
         monkeypatch.setattr(
-            "session_manager.utils.paths.get_storage_dir",
-            lambda: storage_dir
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
         )
-        
+
         config = GlobalConfig()
         config.load()
         registry = ProjectRegistry(config)
-        
+
         return CLI(config, registry)
-    
+
     def test_project_add(self, cli, tmp_path, capsys):
-        """Test adding a project"""
+        """Тест добавления проекта"""
         project_path = tmp_path / "myproject"
         project_path.mkdir()
-        
+
         result = cli.project_add(["myproject", str(project_path)])
-        
+
         assert result == 0
-        
+
         captured = capsys.readouterr()
-        assert "Added project" in captured.out
-    
+        assert "Добавлен проект" in captured.out
+
     def test_project_list_empty(self, cli, capsys):
-        """Test listing when no projects"""
+        """Тест списка когда нет проектов"""
         result = cli.project_list([])
-        
+
         assert result == 0
-        
+
         captured = capsys.readouterr()
-        assert "No projects" in captured.out
-    
+        assert "Пока нет зарегистрированных проектов" in captured.out
+
     def test_project_list(self, cli, tmp_path, capsys):
-        """Test listing projects"""
+        """Тест списка проектов"""
         project_path = tmp_path / "myproject"
         project_path.mkdir()
-        
+
         cli.project_add(["myproject", str(project_path)])
-        
+
         result = cli.project_list([])
-        
+
         assert result == 0
-        
+
         captured = capsys.readouterr()
         assert "myproject" in captured.out
 
 
 class TestCLIRun:
-    """Test CLI run method"""
-    
+    """Тест метода run CLI"""
+
     @pytest.fixture
     def cli(self, tmp_path, monkeypatch):
-        """Create a CLI instance"""
-        storage_dir = tmp_path / ".session-manager"
-        
+        """Создать экземпляр CLI"""
+        storage_dir = tmp_path / ".session_manager"
+
         monkeypatch.setattr(
             "session_manager.core.config.get_config_file",
-            lambda: storage_dir / "config.json"
+            lambda: storage_dir / "config.json",
         )
         monkeypatch.setattr(
-            "session_manager.core.config.ensure_storage_structure",
-            lambda: None
+            "session_manager.core.config.ensure_storage_structure", lambda: None
         )
-        
+
         config = GlobalConfig()
         config.load()
         registry = ProjectRegistry(config)
-        
+
         return CLI(config, registry)
-    
+
     def test_run_no_args(self, cli):
-        """Test running with no arguments"""
+        """Тест запуска без аргументов"""
         result = cli.run([])
-        
+
         assert result == 0
-    
+
     def test_run_help(self, cli):
-        """Test running help command"""
+        """Тест запуска команды help"""
         result = cli.run(["help"])
-        
+
         assert result == 0
-    
+
     def test_run_version(self, cli):
-        """Test running version command"""
+        """Тест запуска команды version"""
         result = cli.run(["version"])
-        
+
         assert result == 0
-    
+
     def test_run_unknown_command(self, cli, capsys):
-        """Test running unknown command"""
+        """Тест запуска неизвестной команды"""
         result = cli.run(["unknown"])
-        
+
         assert result == 1
-        
+
         captured = capsys.readouterr()
-        assert "Unknown command" in captured.out
+        assert "Неизвестная команда" in captured.out

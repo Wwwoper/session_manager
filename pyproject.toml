@@ -3,7 +3,7 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "session-manager"
+name = "session_manager"
 dynamic = ["version"]
 description = "Умный трекер сессий работы с сохранением контекста для разработчиков"
 readme = "README.md"
@@ -26,14 +26,14 @@ classifiers = [
     "Operating System :: OS Independent",
     "Environment :: Console",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 keywords = ["session", "time-tracking", "context", "development", "workflow", "git", "productivity"]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/session-manager"
-Documentation = "https://github.com/yourusername/session-manager#readme"
-Repository = "https://github.com/yourusername/session-manager"
-Issues = "https://github.com/yourusername/session-manager/issues"
+Homepage = "https://github.com/yourusername/session_manager"
+Documentation = "https://github.com/yourusername/session_manager#readme"
+Repository = "https://github.com/yourusername/session_manager"
+Issues = "https://github.com/yourusername/session_manager/issues"
 
 [project.scripts]
 session = "session_manager.__main__:main"

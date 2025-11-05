@@ -1,7 +1,7 @@
 """
-Formatting utilities for Session Manager
+Утилиты форматирования для Session Manager
 
-Provides functions for formatting output with emojis and colors.
+Предоставляет функции для форматирования вывода с эмодзи и цветами.
 """
 
 from typing import List, Dict, Any
@@ -10,47 +10,47 @@ from datetime import datetime
 
 def format_duration(seconds: int) -> str:
     """
-    Format duration in a human-readable way.
-    
+    Форматировать продолжительность в удобочитаемом виде.
+
     Args:
-        seconds: Duration in seconds
-        
+        seconds: Продолжительность в секундах
+
     Returns:
-        Formatted duration string (e.g., "1h 30m", "45m", "30s")
+        Отформатированная строка продолжительности (например, "1ч 30м", "45м", "30с")
     """
     if seconds < 60:
-        return f"{seconds}s"
-    
+        return f"{seconds}с"
+
     minutes = seconds // 60
     remaining_seconds = seconds % 60
-    
+
     if minutes < 60:
         if remaining_seconds > 0:
-            return f"{minutes}m {remaining_seconds}s"
-        return f"{minutes}m"
-    
+            return f"{minutes}м {remaining_seconds}с"
+        return f"{minutes}м"
+
     hours = minutes // 60
     remaining_minutes = minutes % 60
-    
+
     if remaining_minutes > 0:
-        return f"{hours}h {remaining_minutes}m"
-    return f"{hours}h"
+        return f"{hours}ч {remaining_minutes}м"
+    return f"{hours}ч"
 
 
 def format_timestamp(iso_string: str, format_type: str = "datetime") -> str:
     """
-    Format ISO timestamp in a readable way.
-    
+    Форматировать временной штамп ISO в читаемом виде.
+
     Args:
-        iso_string: ISO-8601 timestamp string
-        format_type: Type of formatting ("datetime", "date", "time")
-        
+        iso_string: Строка временного штампа ISO-8601
+        format_type: Тип форматирования ("datetime", "date", "time")
+
     Returns:
-        Formatted timestamp string
+        Отформатированная строка временного штампа
     """
     try:
         dt = datetime.fromisoformat(iso_string)
-        
+
         if format_type == "date":
             return dt.strftime("%Y-%m-%d")
         elif format_type == "time":
@@ -62,272 +62,269 @@ def format_timestamp(iso_string: str, format_type: str = "datetime") -> str:
 
 
 def print_success(message: str) -> None:
-    """Print success message with emoji."""
+    """Напечатать сообщение об успехе с эмодзи."""
     print(f"✅ {message}")
 
 
 def print_warning(message: str) -> None:
-    """Print warning message with emoji."""
+    """Напечатать предупреждение с эмодзи."""
     print(f"⚠️  {message}")
 
 
 def print_error(message: str) -> None:
-    """Print error message with emoji."""
+    """Напечатать сообщение об ошибке с эмодзи."""
     print(f"❌ {message}")
 
 
 def print_info(message: str) -> None:
-    """Print info message with emoji."""
+    """Напечатать информационное сообщение с эмодзи."""
     print(f"ℹ️  {message}")
 
 
 def print_section(title: str) -> None:
-    """Print section header with emoji."""
+    """Напечатать заголовок раздела с эмодзи."""
     print(f"\n{'=' * 60}")
     print(f"  {title}")
     print(f"{'=' * 60}\n")
 
 
 def print_subsection(title: str) -> None:
-    """Print subsection header."""
+    """Напечатать заголовок подраздела."""
     print(f"\n{title}")
     print(f"{'-' * len(title)}")
 
 
 def format_table(data: List[Dict[str, Any]], columns: List[str]) -> str:
     """
-    Format data as a simple text table.
-    
+    Форматировать данные в виде простой текстовой таблицы.
+
     Args:
-        data: List of dictionaries with data
-        columns: List of column names to display
-        
+        data: Список словарей с данными
+        columns: Список имен столбцов для отображения
+
     Returns:
-        Formatted table as string
+        Отформатированная таблица в виде строки
     """
     if not data:
-        return "No data to display"
-    
-    # Calculate column widths
+        return "Нет данных для отображения"
+
+    # Вычислить ширину столбцов
     widths = {}
     for col in columns:
-        # Start with column name width
+        # Начать с ширины названия столбца
         widths[col] = len(col)
-        # Check data widths
+        # Проверить ширину данных
         for row in data:
             value = str(row.get(col, ""))
             widths[col] = max(widths[col], len(value))
-    
-    # Build table
+
+    # Построить таблицу
     lines = []
-    
-    # Header
+
+    # Заголовок
     header = " | ".join(col.ljust(widths[col]) for col in columns)
     lines.append(header)
     lines.append("-" * len(header))
-    
-    # Rows
+
+    # Строки
     for row in data:
-        line = " | ".join(
-            str(row.get(col, "")).ljust(widths[col]) 
-            for col in columns
-        )
+        line = " | ".join(str(row.get(col, "")).ljust(widths[col]) for col in columns)
         lines.append(line)
-    
+
     return "\n".join(lines)
 
 
 def format_list(items: List[str], bullet: str = "•") -> str:
     """
-    Format list of items with bullets.
-    
+    Форматировать список элементов с маркерами.
+
     Args:
-        items: List of strings
-        bullet: Bullet character
-        
+        items: Список строк
+        bullet: Символ маркера
+
     Returns:
-        Formatted list as string
+        Отформатированный список в виде строки
     """
     if not items:
-        return "No items"
-    
+        return "Нет элементов"
+
     return "\n".join(f"  {bullet} {item}" for item in items)
 
 
 def format_key_value(data: Dict[str, Any], indent: int = 2) -> str:
     """
-    Format dictionary as key-value pairs.
-    
+    Форматировать словарь в виде пар ключ-значение.
+
     Args:
-        data: Dictionary to format
-        indent: Number of spaces for indentation
-        
+        data: Словарь для форматирования
+        indent: Количество пробелов для отступа
+
     Returns:
-        Formatted key-value pairs as string
+        Отформатированные пары ключ-значение в виде строки
     """
     if not data:
-        return "No data"
-    
-    # Find longest key for alignment
+        return "Нет данных"
+
+    # Найти самый длинный ключ для выравнивания
     max_key_len = max(len(str(k)) for k in data.keys())
-    
+
     lines = []
     indent_str = " " * indent
-    
+
     for key, value in data.items():
         key_str = str(key).ljust(max_key_len)
         lines.append(f"{indent_str}{key_str} : {value}")
-    
+
     return "\n".join(lines)
 
 
 def format_session_summary(session: Dict[str, Any]) -> str:
     """
-    Format session information as a summary.
-    
+    Форматировать информацию о сессии в виде резюме.
+
     Args:
-        session: Session dictionary
-        
+        session: Словарь сессии
+
     Returns:
-        Formatted session summary
+        Отформатированное резюме сессии
     """
     lines = []
-    
-    # Basic info
+
+    # Основная информация
     if session.get("description"):
-        lines.append(f"Description: {session['description']}")
-    
-    # Timing
+        lines.append(f"Описание: {session['description']}")
+
+    # Время
     if session.get("start_time"):
-        lines.append(f"Started: {format_timestamp(session['start_time'])}")
-    
+        lines.append(f"Начало: {format_timestamp(session['start_time'])}")
+
     if session.get("end_time"):
-        lines.append(f"Ended: {format_timestamp(session['end_time'])}")
-    
+        lines.append(f"Конец: {format_timestamp(session['end_time'])}")
+
     if session.get("duration"):
-        lines.append(f"Duration: {format_duration(session['duration'])}")
-    
-    # Git info
+        lines.append(f"Продолжительность: {format_duration(session['duration'])}")
+
+    # Информация Git
     if session.get("branch"):
-        lines.append(f"Branch: {session['branch']}")
-    
+        lines.append(f"Ветка: {session['branch']}")
+
     if session.get("last_commit"):
-        lines.append(f"Last Commit: {session['last_commit']}")
-    
-    # Summary
+        lines.append(f"Последний коммит: {session['last_commit']}")
+
+    # Резюме
     if session.get("summary"):
-        lines.append(f"\nSummary: {session['summary']}")
-    
+        lines.append(f"\nРезюме: {session['summary']}")
+
     if session.get("next_action"):
-        lines.append(f"Next Action: {session['next_action']}")
-    
+        lines.append(f"Следующее действие: {session['next_action']}")
+
     return "\n".join(lines)
 
 
 def format_project_list(projects: List[Dict[str, Any]]) -> str:
     """
-    Format list of projects.
-    
+    Форматировать список проектов.
+
     Args:
-        projects: List of project info dictionaries
-        
+        projects: Список словарей информации о проектах
+
     Returns:
-        Formatted project list
+        Отформатированный список проектов
     """
     if not projects:
-        return "No projects found"
-    
+        return "Проекты не найдены"
+
     lines = []
-    
+
     for project in projects:
-        name = project.get("name", "Unknown")
-        path = project.get("path", "Unknown")
+        name = project.get("name", "Неизвестно")
+        path = project.get("path", "Неизвестно")
         alias = project.get("alias")
-        
+
         line = f"• {name}"
         if alias:
             line += f" ({alias})"
-        line += f"\n  Path: {path}"
-        
+        line += f"\n  Путь: {path}"
+
         if project.get("last_used"):
             last_used = format_timestamp(project["last_used"])
-            line += f"\n  Last used: {last_used}"
-        
+            line += f"\n  Последнее использование: {last_used}"
+
         lines.append(line)
-    
+
     return "\n\n".join(lines)
 
 
 def truncate_string(s: str, max_length: int, suffix: str = "...") -> str:
     """
-    Truncate string if it exceeds max length.
-    
+    Обрезать строку, если она превышает максимальную длину.
+
     Args:
-        s: String to truncate
-        max_length: Maximum length
-        suffix: Suffix to add when truncated
-        
+        s: Строка для обрезки
+        max_length: Максимальная длина
+        suffix: Суффикс для добавления при обрезке
+
     Returns:
-        Truncated string
+        Обрезанная строка
     """
     if len(s) <= max_length:
         return s
-    return s[:max_length - len(suffix)] + suffix
+    return s[: max_length - len(suffix)] + suffix
 
 
 def format_stats(stats: Dict[str, Any]) -> str:
     """
-    Format statistics dictionary.
-    
+    Форматировать словарь статистики.
+
     Args:
-        stats: Statistics dictionary
-        
+        stats: Словарь статистики
+
     Returns:
-        Formatted statistics string
+        Отформатированная строка статистики
     """
     lines = []
-    
+
     total_sessions = stats.get("total_sessions", 0)
-    lines.append(f"Total Sessions: {total_sessions}")
-    
+    lines.append(f"Всего сессий: {total_sessions}")
+
     if total_sessions > 0:
         total_time = stats.get("total_time", 0)
-        lines.append(f"Total Time: {format_duration(total_time)}")
-        
+        lines.append(f"Общее время: {format_duration(total_time)}")
+
         avg_duration = stats.get("average_duration", 0)
-        lines.append(f"Average Duration: {format_duration(avg_duration)}")
-        
+        lines.append(f"Средняя продолжительность: {format_duration(avg_duration)}")
+
         longest = stats.get("longest_session", 0)
-        lines.append(f"Longest Session: {format_duration(longest)}")
-        
+        lines.append(f"Самая длинная сессия: {format_duration(longest)}")
+
         shortest = stats.get("shortest_session", 0)
-        lines.append(f"Shortest Session: {format_duration(shortest)}")
-    
+        lines.append(f"Самая короткая сессия: {format_duration(shortest)}")
+
     return "\n".join(lines)
 
 
 def wrap_text(text: str, width: int = 70) -> str:
     """
-    Wrap text to specified width.
-    
+    Перенести текст на заданную ширину.
+
     Args:
-        text: Text to wrap
-        width: Maximum line width
-        
+        text: Текст для переноса
+        width: Максимальная ширина строки
+
     Returns:
-        Wrapped text
+        Перенесенный текст
     """
     if len(text) <= width:
         return text
-    
+
     words = text.split()
     lines = []
     current_line = []
     current_length = 0
-    
+
     for word in words:
         word_len = len(word)
-        
+
         if current_length + word_len + len(current_line) <= width:
             current_line.append(word)
             current_length += word_len
@@ -336,20 +333,20 @@ def wrap_text(text: str, width: int = 70) -> str:
                 lines.append(" ".join(current_line))
             current_line = [word]
             current_length = word_len
-    
+
     if current_line:
         lines.append(" ".join(current_line))
-    
+
     return "\n".join(lines)
 
 
 def print_header(text: str, char: str = "=") -> None:
     """
-    Print a header with decorative characters.
-    
+    Напечатать заголовок с декоративными символами.
+
     Args:
-        text: Header text
-        char: Character to use for decoration
+        text: Текст заголовка
+        char: Символ для использования в декорации
     """
     width = max(len(text) + 4, 60)
     print(f"\n{char * width}")

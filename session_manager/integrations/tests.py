@@ -1,7 +1,7 @@
 """
-Pytest integration for Session Manager
+Интеграция с Pytest для Session Manager
 
-Provides test running and status information with graceful degradation.
+Предоставляет информацию о запуске тестов и статусе с корректной деградацией.
 """
 
 import subprocess
@@ -11,32 +11,32 @@ from typing import Optional, Dict
 
 class TestsIntegration:
     """
-    Integration with pytest test framework.
-    
-    Provides test execution and status information.
-    All methods gracefully handle missing pytest.
+    Интеграция с тестовым фреймворком pytest.
+
+    Предоставляет выполнение тестов и информацию о статусе.
+    Все методы корректно обрабатывают отсутствие pytest.
     """
-    
+
     def __init__(self, project_path: Path):
         """
-        Initialize tests integration for a project.
-        
+        Инициализировать интеграцию с тестами для проекта.
+
         Args:
-            project_path: Path to the project directory
+            project_path: Путь к каталогу проекта
         """
         self.project_path = Path(project_path).resolve()
         self._pytest_available = None
-    
+
     def is_pytest_available(self) -> bool:
         """
-        Check if pytest is installed and accessible.
-        
+        Проверить, установлен ли и доступен ли pytest.
+
         Returns:
-            True if pytest is available
+            True, если pytest доступен
         """
         if self._pytest_available is not None:
             return self._pytest_available
-        
+
         try:
             result = subprocess.run(
                 ["pytest", "--version"],
@@ -46,69 +46,69 @@ class TestsIntegration:
             self._pytest_available = result.returncode == 0
         except (subprocess.SubprocessError, FileNotFoundError, OSError):
             self._pytest_available = False
-        
+
         return self._pytest_available
-    
+
     def has_tests(self) -> bool:
         """
-        Check if project has test files.
-        
-        Looks for common test directories and files.
-        
+        Проверить, есть ли файлы тестов в проекте.
+
+        Ищет распространенные каталоги и файлы тестов.
+
         Returns:
-            True if test files are found
+            True, если найдены файлы тестов
         """
-        # Common test patterns
+        # Распространенные шаблоны тестов
         test_patterns = [
             "test_*.py",
             "*_test.py",
         ]
-        
-        # Common test directories
+
+        # Распространенные каталоги тестов
         test_dirs = [
             self.project_path / "tests",
             self.project_path / "test",
             self.project_path,
         ]
-        
+
         for test_dir in test_dirs:
             if not test_dir.exists():
                 continue
-            
+
             for pattern in test_patterns:
                 if list(test_dir.rglob(pattern)):
                     return True
-        
+
         return False
-    
+
     def run_tests(self, timeout: int = 30, verbose: bool = False) -> Dict:
         """
-        Run pytest tests.
-        
+        Запустить тесты pytest.
+
         Args:
-            timeout: Maximum time to wait for tests (seconds)
-            verbose: If True, include detailed output
-            
+            timeout: Максимальное время ожидания тестов (секунды)
+            verbose: Если True, включить подробный вывод
+
         Returns:
-            Dictionary with test results:
-            - success: bool - if tests ran successfully
-            - passed: int - number of passed tests
-            - failed: int - number of failed tests
-            - output: str - test output (if verbose)
-            - summary: str - brief summary
+            Словарь с результатами тестов:
+            - success: bool - успешно ли запущены тесты
+            - passed: int - количество пройденных тестов
+            - failed: int - количество неудачных тестов
+            - output: str - вывод тестов (если подробно)
+            - summary: str - краткое резюме
         """
         if not self.is_pytest_available():
             return {
                 "success": False,
-                "error": "pytest not available",
+                "error": "pytest недоступен",
                 "passed": 0,
                 "failed": 0,
-                "summary": "pytest not installed",
+                "summary": "pytest не установлен",
             }
-        
+
         try:
             args = ["pytest", "-v" if verbose else "-q", "--tb=short"]
-            
+
             result = subprocess.run(
                 args,
                 capture_output=True,
@@ -116,12 +116,12 @@ class TestsIntegration:
                 timeout=timeout,
                 cwd=self.project_path,
             )
-            
+
             output = result.stdout + result.stderr
-            
-            # Parse output for test counts
+
+            # Разбор вывода для подсчета тестов
             passed, failed = self._parse_test_output(output)
-            
+
             return {
                 "success": result.returncode == 0,
                 "passed": passed,
@@ -130,14 +130,14 @@ class TestsIntegration:
                 "summary": self._generate_summary(passed, failed),
                 "exit_code": result.returncode,
             }
-            
+
         except subprocess.TimeoutExpired:
             return {
                 "success": False,
-                "error": "timeout",
+                "error": "тайм-аут",
                 "passed": 0,
                 "failed": 0,
-                "summary": f"Tests timed out after {timeout}s",
+                "summary": f"Тесты завершились по тайм-ауту после {timeout}с",
             }
         except (subprocess.SubprocessError, OSError) as e:
             return {
@@ -145,19 +145,19 @@ class TestsIntegration:
                 "error": str(e),
                 "passed": 0,
                 "failed": 0,
-                "summary": "Failed to run tests",
+                "summary": "Не удалось запустить тесты",
             }
-    
+
     def collect_tests(self) -> Optional[str]:
         """
-        Collect information about available tests without running them.
-        
+        Собрать информацию о доступных тестах без их запуска.
+
         Returns:
-            String with test collection info, or None if not available
+            Строка с информацией о сборке тестов или None, если недоступно
         """
         if not self.is_pytest_available():
             return None
-        
+
         try:
             result = subprocess.run(
                 ["pytest", "--collect-only", "-q"],
@@ -166,94 +166,94 @@ class TestsIntegration:
                 timeout=10,
                 cwd=self.project_path,
             )
-            
-            if result.returncode == 0 or result.returncode == 5:  # 5 = no tests collected
+
+            if result.returncode == 0 or result.returncode == 5:  # 5 = не собраны тесты
                 return result.stdout.strip()
-            
+
         except (subprocess.SubprocessError, OSError):
             pass
-        
+
         return None
-    
+
     def get_test_summary(self) -> Optional[str]:
         """
-        Get a brief summary of tests without running them.
-        
+        Получить краткое резюме тестов без их запуска.
+
         Returns:
-            Summary string, or None if not available
+            Строка резюме или None, если недоступно
         """
         if not self.is_pytest_available():
             return None
-        
+
         collection = self.collect_tests()
         if collection:
-            # Extract test count from collection
-            lines = collection.split('\n')
+            # Извлечь количество тестов из сборки
+            lines = collection.split("\n")
             for line in lines:
-                if 'test' in line.lower() and any(c.isdigit() for c in line):
+                if "test" in line.lower() and any(c.isdigit() for c in line):
                     return line.strip()
-        
-        return "Tests available"
-    
+
+        return "Тесты доступны"
+
     def _parse_test_output(self, output: str) -> tuple[int, int]:
         """
-        Parse pytest output to extract test counts.
-        
+        Разобрать вывод pytest для извлечения количества тестов.
+
         Args:
-            output: Pytest output text
-            
+            output: Текст вывода pytest
+
         Returns:
-            Tuple of (passed, failed) counts
+            Кортеж (пройдено, неудачно) количества
         """
         passed = 0
         failed = 0
-        
-        # Look for patterns like "5 passed" or "3 failed"
+
+        # Искать шаблоны вроде "5 пройдено" или "3 неудачно"
         import re
-        
-        passed_match = re.search(r'(\d+)\s+passed', output)
+
+        passed_match = re.search(r"(\d+)\s+passed", output)
         if passed_match:
             passed = int(passed_match.group(1))
-        
-        failed_match = re.search(r'(\d+)\s+failed', output)
+
+        failed_match = re.search(r"(\d+)\s+failed", output)
         if failed_match:
             failed = int(failed_match.group(1))
-        
+
         return passed, failed
-    
+
     def _generate_summary(self, passed: int, failed: int) -> str:
         """
-        Generate a brief summary of test results.
-        
+        Сгенерировать краткое резюме результатов тестов.
+
         Args:
-            passed: Number of passed tests
-            failed: Number of failed tests
-            
+            passed: Количество пройденных тестов
+            failed: Количество неудачных тестов
+
         Returns:
-            Summary string
+            Строка резюме
         """
         total = passed + failed
-        
+
         if total == 0:
-            return "No tests found"
-        
+            return "Тесты не найдены"
+
         if failed == 0:
-            return f"✅ All {passed} tests passed"
+            return f"✅ Все {passed} тестов пройдены"
         elif passed == 0:
-            return f"❌ All {failed} tests failed"
+            return f"❌ Все {failed} тестов не пройдены"
         else:
-            return f"⚠️  {passed} passed, {failed} failed"
-    
+            return f"⚠️  {passed} пройдено, {failed} не пройдено"
+
     def get_coverage_info(self) -> Optional[Dict]:
         """
-        Get test coverage information (requires pytest-cov).
-        
+        Получить информацию о покрытии тестов (требуется pytest-cov).
+
         Returns:
-            Dictionary with coverage info, or None if not available
+            Словарь с информацией о покрытии или None, если недоступно
         """
         if not self.is_pytest_available():
             return None
-        
+
         try:
             result = subprocess.run(
                 ["pytest", "--cov", "--cov-report=term-missing", "-q"],
@@ -262,29 +262,30 @@ class TestsIntegration:
                 timeout=30,
                 cwd=self.project_path,
             )
-            
-            # Try to parse coverage percentage
+
+            # Попытка разбора процента покрытия
             import re
-            match = re.search(r'TOTAL\s+\d+\s+\d+\s+(\d+)%', result.stdout)
-            
+
+            match = re.search(r"TOTAL\s+\d+\s+\d+\s+(\d+)%", result.stdout)
+
             if match:
                 return {
                     "available": True,
                     "percentage": int(match.group(1)),
                     "output": result.stdout,
                 }
-            
+
         except (subprocess.SubprocessError, OSError):
             pass
-        
+
         return {"available": False}
-    
+
     def get_test_info(self) -> Dict:
         """
-        Get all test information in one call.
-        
+        Получить всю информацию о тестах за один вызов.
+
         Returns:
-            Dictionary with test information
+            Словарь с информацией о тестах
         """
         return {
             "pytest_available": self.is_pytest_available(),

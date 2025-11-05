@@ -56,7 +56,7 @@ dmypy.json
 .DS_Store
 
 # Session Manager test data
-.session-manager-test/
+.session_manager-test/
 
 # Distribution / packaging
 *.tar.gz
