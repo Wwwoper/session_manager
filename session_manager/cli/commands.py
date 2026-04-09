@@ -67,6 +67,8 @@ class CLI:
             "project": self.cmd_project,
             "start": self.cmd_start,
             "end": self.cmd_end,
+            "abort": self.cmd_abort,
+            "ls": self.cmd_ls,
             "status": self.cmd_status,
             "history": self.cmd_history,
             "stats": self.cmd_stats,
@@ -183,16 +185,28 @@ class CLI:
     def project_remove(self, args: List[str]) -> int:
         """Удалить проект."""
         if len(args) < 1:
-            print_error("Использование: session project remove <название>")
+            print_error("Использование: session project remove <название> [--force]")
             return 1
 
-        name = args[0]
+        force = False
+        name = None
+
+        for arg in args:
+            if arg in ("--force", "-y"):
+                force = True
+            elif not arg.startswith("--"):
+                name = arg
+
+        if not name:
+            print_error("Использование: session project remove <название> [--force]")
+            return 1
 
         # Подтверждение удаления
-        response = input(f"Удалить проект '{name}'? (y/N): ").strip().lower()
-        if response != "y":
-            print_info("Отменено")
-            return 0
+        if not force:
+            response = input(f"Удалить проект '{name}'? (y/N): ").strip().lower()
+            if response != "y":
+                print_info("Отменено")
+                return 0
 
         try:
             success = self.registry.remove(name, delete_data=False)
@@ -238,24 +252,100 @@ class CLI:
 
         return 0
 
+    # ==================== Команда ls — все активные сессии ====================
+
+    def cmd_ls(self, args: List[str]) -> int:
+        """Показать все активные сессии across все проекты."""
+        projects_info = self.registry.list(sort_by_usage=True)
+
+        if not projects_info:
+            print_info("Пока нет зарегистрированных проектов")
+            print_info("Добавьте проект: session project add <название> <путь>")
+            return 0
+
+        # Собираем информацию об активных сессиях
+        active_sessions = []
+        for proj_info in projects_info:
+            try:
+                project = self.registry.get(proj_info.name)
+                if not project:
+                    continue
+
+                sm = SessionManager(project)
+                active = sm.get_active()
+                if active:
+                    active_sessions.append({
+                        "project": project.name,
+                        "alias": proj_info.alias or "-",
+                        "start_time": active["start_time"],
+                        "description": active.get("description") or "-",
+                        "session": active,
+                    })
+            except Exception:
+                continue
+
+        if not active_sessions:
+            print_info("Нет активных сессий")
+            print_info("Начните сессию: session start [проект]")
+            return 0
+
+        print_header("🔍 Активные сессии")
+
+        from datetime import datetime
+
+        for i, session_info in enumerate(active_sessions, 1):
+            project_name = session_info["project"]
+            alias = session_info["alias"]
+            active = session_info["session"]
+
+            display_name = project_name
+            if alias != "-":
+                display_name = f"{project_name} ({alias})"
+
+            print(f"\n{i}. {display_name}")
+
+            start = datetime.fromisoformat(active["start_time"])
+            duration = int((datetime.now() - start).total_seconds())
+
+            print(f"   Начата: {format_timestamp(active['start_time'])}")
+            print(f"   Длительность: {format_duration(duration)}")
+            if active.get("description"):
+                print(f"   Описание: {active['description']}")
+            if active.get("branch"):
+                print(f"   Ветка: {active['branch']}")
+
+        print(f"\n Всего активных: {len(active_sessions)}")
+
+        return 0
+
     # ==================== Команды сессий ====================
 
     def cmd_start(self, args: List[str]) -> int:
         """Начать новую сессию."""
+        # Разбор аргументов: [--force|-y] [проект] [описание]
+        force = False
+        remaining_args = []
+
+        for arg in args:
+            if arg in ("--force", "-y"):
+                force = True
+            else:
+                remaining_args.append(arg)
+
         # Попытка разобрать аргументы
         project_name = None
         description = ""
 
         # Если первый аргумент похож на название проекта (короткий, без пробелов)
         # и проект существует, то считаем его названием проекта
-        if args:
-            potential_project = args[0]
+        if remaining_args:
+            potential_project = remaining_args[0]
             if self.registry.exists(potential_project):
                 project_name = potential_project
-                description = " ".join(args[1:]) if len(args) > 1 else ""
+                description = " ".join(remaining_args[1:]) if len(remaining_args) > 1 else ""
             else:
                 # Иначе всё считаем описанием
-                description = " ".join(args)
+                description = " ".join(remaining_args)
 
         # Получить проект
         project = self._resolve_project(project_name, auto_detect=True)
@@ -271,19 +361,20 @@ class CLI:
                 print_info("Завершите её с помощью: session end")
                 return 1
 
-            print_header(f"🚀 Запуск новой сессии: {project.name}")
+            if not force:
+                print_header(f"🚀 Запуск новой сессии: {project.name}")
 
-            # Показать последний контекст
-            self._show_last_context(project)
+                # Показать последний контекст
+                self._show_last_context(project)
 
-            # Показать статус git
-            self._show_git_status(project)
+                # Показать статус git
+                self._show_git_status(project)
 
-            # Показать задачи GitHub
-            self._show_github_issues(project)
+                # Показать задачи GitHub
+                self._show_github_issues(project)
 
-            # Запустить тесты
-            self._show_test_status(project)
+                # Запустить тесты
+                self._show_test_status(project)
 
             # Запустить сессию
             session = sm.start(description=description)
@@ -308,8 +399,15 @@ class CLI:
 
     def cmd_end(self, args: List[str]) -> int:
         """Завершить активную сессию."""
-        # Получить проект (args[0] если передан)
-        project_name = args[0] if args else None
+        # Разбор аргументов: [--force|-y] [проект]
+        force = False
+        project_name = None
+
+        for arg in args:
+            if arg in ("--force", "-y"):
+                force = True
+            elif not arg.startswith("--"):
+                project_name = arg
 
         # Если проект не указан явно — ищем активную сессию среди всех проектов
         if project_name is None:
@@ -330,57 +428,163 @@ class CLI:
                 print_info(f"Начните сессию с помощью: session start")
                 return 1
 
-            print_header(f"💾 Завершение сессии: {project.name}")
+            # Режим --force: завершить без вопросов
+            if force:
+                return self._end_session_forced(project, sm, active)
 
-            # Получить итог
-            print("Что было выполнено в этой сессии?")
-            summary = input("Итог: ").strip()
+            return self._end_session_interactive(project, sm, active)
 
-            print("\nКакое следующее конкретное действие?")
-            print("(например, 'Добавить тесты для функции parse_data')")
-            next_action = input("Следующее действие: ").strip()
+        except SessionError as e:
+            print_error(f"Не удалось завершить сессию: {e}")
+            return 1
 
-            # Проверить незакоммиченные изменения
-            git = GitIntegration(project.path)
-            if git.has_uncommitted_changes():
-                print_warning("\nОбнаружены незакоммиченные изменения!")
-                changes = git.get_uncommitted_changes()
-                print(changes[:200])
+    def _end_session_interactive(self, project, sm, active) -> int:
+        """Интерактивное завершение сессии."""
+        from datetime import datetime
 
-                response = input("\nСоздать коммит? (y/N): ").strip().lower()
-                if response == "y":
-                    commit_msg = input("Сообщение коммита: ").strip()
-                    if commit_msg:
-                        git.add_all()
-                        if git.create_commit(commit_msg):
-                            print_success("Коммит создан")
-                        else:
-                            print_error("Не удалось создать коммит")
+        print_header(f"💾 Завершение сессии: {project.name}")
 
-            # Завершить сессию
-            completed = sm.end(summary=summary, next_action=next_action)
+        # Показать подсказку с текущим next_action
+        cm = ContextManager(project)
+        current_next_action = cm.get_next_action_from_project_md()
 
-            # Сохранить снимок контекста
-            cm = ContextManager(project)
-            git_info = git.get_git_info() if git.is_git_repo() else None
-            tests = TestsIntegration(project.path)
-            test_info = tests.get_test_info() if tests.is_pytest_available() else None
+        # Получить итог
+        print("Что было выполнено в этой сессии?")
+        summary = input("Итог: ").strip()
 
-            snapshot_path = cm.save_snapshot(
-                completed, summary, next_action, git_info=git_info, test_info=test_info
-            )
+        print("\nКакое следующее конкретное действие?")
+        print("(например, 'Добавить тесты для функции parse_data')")
+        if current_next_action:
+            print(f"[Текущее: {current_next_action}]")
+        next_action = input("Следующее действие: ").strip()
 
-            # Сгенерировать PROJECT.md
-            cm.generate_project_md(completed, summary, next_action)
+        # Проверить незакоммиченные изменения
+        git = GitIntegration(project.path)
+        if git.has_uncommitted_changes():
+            print_warning("\nОбнаружены незакоммиченные изменения!")
+            changes = git.get_uncommitted_changes()
+            print(changes[:200])
 
-            print_success("\nСессия завершена!")
-            print_info(f"Продолжительность: {format_duration(completed['duration'])}")
-            print_info(f"Снимок сохранен: {Path(snapshot_path).name}")
-            print_info("PROJECT.md обновлен")
+            response = input("\nСоздать коммит? (y/N): ").strip().lower()
+            if response == "y":
+                commit_msg = input("Сообщение коммита: ").strip()
+                if commit_msg:
+                    git.add_all()
+                    if git.create_commit(commit_msg):
+                        print_success("Коммит создан")
+                    else:
+                        print_error("Не удалось создать коммит")
+
+        # Завершить сессию
+        completed = sm.end(summary=summary, next_action=next_action)
+
+        # Сохранить снимок контекста
+        git_info = git.get_git_info() if git.is_git_repo() else None
+        tests = TestsIntegration(project.path)
+        test_info = tests.get_test_info() if tests.is_pytest_available() else None
+
+        snapshot_path = cm.save_snapshot(
+            completed, summary, next_action, git_info=git_info, test_info=test_info
+        )
+
+        # Сгенерировать PROJECT.md
+        cm.generate_project_md(completed, summary, next_action)
+
+        print_success("\nСессия завершена!")
+        print_info(f"Продолжительность: {format_duration(completed['duration'])}")
+        print_info(f"Снимок сохранен: {Path(snapshot_path).name}")
+        print_info("PROJECT.md обновлен")
+
+        return 0
+
+    def _end_session_forced(self, project, sm, active) -> int:
+        """Принудительное завершение сессии без вопросов."""
+        from datetime import datetime
+
+        # Рассчитать продолжительность
+        start_time = datetime.fromisoformat(active["start_time"])
+        end_time = datetime.now()
+        duration = int((end_time - start_time).total_seconds())
+
+        # Завершить сессию без резюме и next_action
+        active["end_time"] = end_time.isoformat()
+        active["duration"] = duration
+        active["summary"] = ""
+        active["next_action"] = ""
+
+        # Сохранить
+        try:
+            data = project.get_sessions_data()
+            for i, session in enumerate(data["sessions"]):
+                if session["id"] == active["id"]:
+                    data["sessions"][i] = active
+                    break
+            data["active_session"] = None
+            project.save_sessions_data(data)
+        except ProjectError as e:
+            raise SessionError(f"Не удалось завершить сессию: {e}")
+
+        print_success(f"Сессия в проекте '{project.name}' завершена!")
+        print_info(f"Продолжительность: {format_duration(duration)}")
+
+        return 0
+
+    def cmd_abort(self, args: List[str]) -> int:
+        """Принудительно завершить активную сессию без вопросов."""
+        # Получить проект (args[0] если передан)
+        project_name = args[0] if args else None
+
+        # Если проект не указан — ищем активную сессию среди всех проектов
+        if project_name is None:
+            project = self._find_active_session()
+            if not project:
+                return 1
+        else:
+            project = self._resolve_project(project_name, auto_detect=True)
+            if not project:
+                return 1
+
+        try:
+            sm = SessionManager(project)
+
+            active = sm.get_active()
+            if not active:
+                print_warning("Нет активной сессии")
+                print_info(f"Начните сессию с помощью: session start")
+                return 1
+
+            # Рассчитать продолжительность
+            from datetime import datetime
+
+            start_time = datetime.fromisoformat(active["start_time"])
+            end_time = datetime.now()
+            duration = int((end_time - start_time).total_seconds())
+
+            # Завершить сессию без резюме и next_action
+            active["end_time"] = end_time.isoformat()
+            active["duration"] = duration
+            active["summary"] = ""
+            active["next_action"] = ""
+
+            # Сохранить
+            try:
+                data = project.get_sessions_data()
+                for i, session in enumerate(data["sessions"]):
+                    if session["id"] == active["id"]:
+                        data["sessions"][i] = active
+                        break
+                data["active_session"] = None
+                project.save_sessions_data(data)
+            except ProjectError as e:
+                raise SessionError(f"Не удалось завершить сессию: {e}")
+
+            print_success(f"Сессия в проекте '{project.name}' принудительно завершена!")
+            print_info(f"Продолжительность: {format_duration(duration)}")
+            print_info("Резюме и следующее действие не сохранены")
 
             return 0
 
-        except (SessionError, ContextError) as e:
+        except SessionError as e:
             print_error(f"Не удалось завершить сессию: {e}")
             return 1
 
@@ -725,8 +929,12 @@ class CLI:
         print("КОМАНДЫ СЕССИЙ:")
         print("  start [проект] [описание]")
         print("    Начать новую сессию")
-        print("  end [проект]")
+        print("  end [проект] [--force|-y]")
         print("    Завершить активную сессию")
+        print("  abort [проект]")
+        print("    Принудительно завершить без вопросов")
+        print("  ls")
+        print("    Все активные сессии")
         print("  status [проект]")
         print("    Показать текущий статус")
         print("  history [проект] [--limit N]")
@@ -739,6 +947,10 @@ class CLI:
         print("    Показать эту справку")
         print("  version")
         print("    Показать версию\n")
+
+        print("ОБЩИЕ ФЛАГИ:")
+        print("  --force, -y")
+        print("    Пропустить интерактивные подтверждения\n")
 
         print("ПРИМЕРЫ:")
         print("  # Добавить проект")

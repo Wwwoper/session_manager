@@ -191,3 +191,210 @@ class TestCLIRun:
 
         captured = capsys.readouterr()
         assert "Неизвестная команда" in captured.out
+
+
+class TestCLILsCommand:
+    """Тест команды ls — все активные сессии"""
+
+    @pytest.fixture
+    def cli(self, tmp_path, monkeypatch):
+        """Создать экземпляр CLI"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+
+        storage_dir = tmp_path / ".session_manager"
+
+        monkeypatch.setattr(
+            "session_manager.core.config.get_config_file",
+            lambda: storage_dir / "config.json",
+        )
+        monkeypatch.setattr(
+            "session_manager.core.config.ensure_storage_structure", lambda: None
+        )
+        monkeypatch.setattr(
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
+        )
+
+        config = GlobalConfig()
+        config.load()
+        registry = ProjectRegistry(config)
+
+        return CLI(config, registry)
+
+    def test_ls_no_active_sessions(self, cli, tmp_path, capsys):
+        """Тест ls когда нет активных сессий"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        result = cli.cmd_ls([])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Нет активных сессий" in captured.out
+
+    def test_ls_with_active_sessions(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест ls с активными сессиями"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Начать сессию
+        project = Project("myproject", str(project_path))
+        sm = SessionManager(project)
+        sm.start(description="Тестовая сессия")
+
+        result = cli.cmd_ls([])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Активные сессии" in captured.out
+        assert "myproject" in captured.out
+        assert "Тестовая сессия" in captured.out
+
+
+class TestCLIAbortCommand:
+    """Тест команды abort"""
+
+    @pytest.fixture
+    def cli(self, tmp_path, monkeypatch):
+        """Создать экземпляр CLI"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+
+        storage_dir = tmp_path / ".session_manager"
+
+        monkeypatch.setattr(
+            "session_manager.core.config.get_config_file",
+            lambda: storage_dir / "config.json",
+        )
+        monkeypatch.setattr(
+            "session_manager.core.config.ensure_storage_structure", lambda: None
+        )
+        monkeypatch.setattr(
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
+        )
+
+        config = GlobalConfig()
+        config.load()
+        registry = ProjectRegistry(config)
+
+        return CLI(config, registry)
+
+    def test_abort_no_active_session(self, cli, tmp_path, capsys):
+        """Тест abort когда нет активной сессии"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        result = cli.cmd_abort(["myproject"])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "Нет активной сессии" in captured.out
+
+    def test_abort_session(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест abort активной сессии"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Начать сессию
+        project = Project("myproject", str(project_path))
+        sm = SessionManager(project)
+        sm.start(description="Тестовая сессия")
+
+        # Прервать
+        result = cli.cmd_abort(["myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "принудительно завершена" in captured.out
+
+        # Проверить что сессия завершена
+        active = sm.get_active()
+        assert active is None
+
+
+class TestCLIForceFlags:
+    """Тест флагов --force/-y"""
+
+    @pytest.fixture
+    def cli(self, tmp_path, monkeypatch):
+        """Создать экземпляр CLI"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+
+        storage_dir = tmp_path / ".session_manager"
+
+        monkeypatch.setattr(
+            "session_manager.core.config.get_config_file",
+            lambda: storage_dir / "config.json",
+        )
+        monkeypatch.setattr(
+            "session_manager.core.config.ensure_storage_structure", lambda: None
+        )
+        monkeypatch.setattr(
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
+        )
+
+        config = GlobalConfig()
+        config.load()
+        registry = ProjectRegistry(config)
+
+        return CLI(config, registry)
+
+    def test_end_with_force(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест session end --force"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Начать сессию
+        project = Project("myproject", str(project_path))
+        sm = SessionManager(project)
+        sm.start(description="Тестовая сессия")
+
+        # Завершить с --force (без интерактивных вопросов)
+        result = cli.cmd_end(["--force", "myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "завершена" in captured.out
+
+    def test_project_remove_with_force(self, cli, tmp_path, capsys):
+        """Тест session project remove --force"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Удалить с --force (без подтверждения)
+        result = cli.project_remove(["--force", "myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Удален проект" in captured.out
+
+    def test_start_with_force(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест session start --force (пропускает контекст)"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        result = cli.cmd_start(["--force", "myproject", "Тестовое описание"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Сессия начата" in captured.out
+        # --force не должен показывать контекст
+        assert "Запуск новой сессии" not in captured.out
+
