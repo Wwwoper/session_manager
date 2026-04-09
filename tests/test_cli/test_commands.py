@@ -620,4 +620,92 @@ class TestP2Improvements:
         assert updated["next_action"] == "Новое значение"
 
 
+class TestP2FinalImprovements:
+    """Тесты финальных P2 улучшений"""
+
+    @pytest.fixture
+    def cli(self, tmp_path, monkeypatch):
+        """Создать экземпляр CLI"""
+        storage_dir = tmp_path / ".session_manager"
+
+        monkeypatch.setattr(
+            "session_manager.core.config.get_config_file",
+            lambda: storage_dir / "config.json",
+        )
+        monkeypatch.setattr(
+            "session_manager.core.config.ensure_storage_structure", lambda: None
+        )
+        monkeypatch.setattr(
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
+        )
+
+        config = GlobalConfig()
+        config.load()
+        registry = ProjectRegistry(config)
+
+        return CLI(config, registry)
+
+    def test_completion_bash(self, cli, capsys):
+        """Тест: session completion bash"""
+        result = cli.cmd_completion(["bash"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "complete -F _session_completion session" in captured.out
+
+    def test_completion_zsh(self, cli, capsys):
+        """Тест: session completion zsh"""
+        result = cli.cmd_completion(["zsh"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "#compdef session" in captured.out
+
+    def test_completion_fish(self, cli, capsys):
+        """Тест: session completion fish"""
+        result = cli.cmd_completion(["fish"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "complete -c session" in captured.out
+
+    def test_history_full_flag(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест: session history --full показывает полный текст"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+        from datetime import datetime
+
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Создать длинную сессию
+        project = Project("myproject", str(project_path))
+        sm = SessionManager(project)
+        session = sm.start(description="A" * 200)
+        active = sm.get_active()
+        active["end_time"] = datetime.now().isoformat()
+        active["duration"] = 3600
+        active["summary"] = "B" * 200
+        active["next_action"] = "C" * 200
+        data = project.get_sessions_data()
+        for i, s in enumerate(data["sessions"]):
+            if s["id"] == active["id"]:
+                data["sessions"][i] = active
+                break
+        data["active_session"] = None
+        project.save_sessions_data(data)
+
+        # Без --full
+        result = cli.cmd_history(["myproject"])
+        captured = capsys.readouterr()
+        assert "..." in captured.out
+
+        # С --full
+        result = cli.cmd_history(["myproject", "--full"])
+        captured = capsys.readouterr()
+        assert "..." not in captured.out
+
+
+
 

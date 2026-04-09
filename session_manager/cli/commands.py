@@ -74,6 +74,7 @@ class CLI:
             "status": self.cmd_status,
             "history": self.cmd_history,
             "stats": self.cmd_stats,
+            "completion": self.cmd_completion,
             "help": self.show_help,
             "version": self.show_version,
         }
@@ -407,13 +408,16 @@ class CLI:
 
     def cmd_end(self, args: List[str]) -> int:
         """Завершить активную сессию."""
-        # Разбор аргументов: [--force|-y] [проект]
+        # Разбор аргументов: [--force|-y] [--diff] [проект]
         force = False
+        show_diff = False
         project_name = None
 
         for arg in args:
             if arg in ("--force", "-y"):
                 force = True
+            elif arg == "--diff":
+                show_diff = True
             elif not arg.startswith("--"):
                 project_name = arg
 
@@ -440,13 +444,13 @@ class CLI:
             if force:
                 return self._end_session_forced(project, sm, active)
 
-            return self._end_session_interactive(project, sm, active)
+            return self._end_session_interactive(project, sm, active, show_diff=show_diff)
 
         except SessionError as e:
             print_error(f"Не удалось завершить сессию: {e}")
             return 1
 
-    def _end_session_interactive(self, project, sm, active) -> int:
+    def _end_session_interactive(self, project, sm, active, show_diff=False) -> int:
         """Интерактивное завершение сессии."""
         from datetime import datetime
 
@@ -455,6 +459,25 @@ class CLI:
         # Показать подсказку с текущим next_action
         cm = ContextManager(project)
         current_next_action = cm.get_next_action_from_project_md()
+
+        # Показать изменения git
+        git = GitIntegration(project.path)
+        if git.is_git_repo() and git.has_uncommitted_changes():
+            if show_diff:
+                print_subsection("📝 Изменения (diff)")
+                diff_output = git.get_diff()
+                if diff_output:
+                    print(diff_output)
+                else:
+                    print_info("Нет изменений в diff")
+            else:
+                print_subsection("📋 Изменённые файлы")
+                files = git.get_changed_files()
+                if files:
+                    for f in files:
+                        print(f"  • {f}")
+                else:
+                    print_info("Нет изменённых файлов")
 
         # Получить итог
         print("Что было выполнено в этой сессии?")
@@ -466,10 +489,9 @@ class CLI:
             print(f"[Текущее: {current_next_action}]")
         next_action = input("Следующее действие: ").strip()
 
-        # Проверить незакоммиченные изменения
-        git = GitIntegration(project.path)
+        # Проверить незакоммиченные изменения (для коммита)
         if git.has_uncommitted_changes():
-            print_warning("\nОбнаружены незакоммиченные изменения!")
+            print_warning("\n⚠️  Обнаружены незакоммиченные изменения!")
             changes = git.get_uncommitted_changes()
             print(changes[:200])
 
@@ -934,9 +956,10 @@ class CLI:
 
     def cmd_history(self, args: List[str]) -> int:
         """Показать историю сессий."""
-        # Разбор аргументов: может быть [проект] или [--limit N]
+        # Разбор аргументов: может быть [проект] или [--limit N] [--full]
         project_name = None
         limit = 10
+        full = False
 
         i = 0
         while i < len(args):
@@ -948,6 +971,9 @@ class CLI:
                 except ValueError:
                     print_error("Неверное значение лимита")
                     return 1
+            elif arg == "--full":
+                full = True
+                i += 1
             elif not arg.startswith("--"):
                 # Предполагаем, что это название проекта
                 project_name = arg
@@ -988,13 +1014,30 @@ class CLI:
         for i, session in enumerate(history, 1):
             print(f"\n{i}. Сессия")
             print(f"   Начата: {format_timestamp(session['start_time'])}")
+            if session.get("end_time"):
+                print(f"   Завершена: {format_timestamp(session['end_time'])}")
             print(f"   Продолжительность: {format_duration(session['duration'])}")
 
+            if session.get("description"):
+                desc = session["description"] if full else session["description"][:80]
+                if len(session.get("description", "")) > 80 and not full:
+                    desc += "..."
+                print(f"   Описание: {desc}")
+
             if session.get("summary"):
-                summary = session["summary"][:60]
-                if len(session["summary"]) > 60:
+                summary = session["summary"] if full else session["summary"][:80]
+                if len(session.get("summary", "")) > 80 and not full:
                     summary += "..."
                 print(f"   Итог: {summary}")
+
+            if session.get("next_action"):
+                action = session["next_action"] if full else session["next_action"][:60]
+                if len(session.get("next_action", "")) > 60 and not full:
+                    action += "..."
+                print(f"   Следующее: {action}")
+
+            if session.get("branch"):
+                print(f"   Ветка: {session['branch']}")
 
         print(f"\nПоказано {len(history)} последних сессий")
 
@@ -1209,7 +1252,7 @@ class CLI:
         print("КОМАНДЫ СЕССИЙ:")
         print("  start [проект] [описание] [--no-tests]")
         print("    Начать новую сессию")
-        print("  end [проект] [--force|-y]")
+        print("  end [проект] [--force|-y] [--diff]")
         print("    Завершить активную сессию")
         print("  abort [проект]")
         print("    Принудительно завершить без вопросов")
@@ -1221,7 +1264,7 @@ class CLI:
         print("    Все активные сессии")
         print("  status [проект] [--no-tests]")
         print("    Показать текущий статус")
-        print("  history [проект] [--limit N]")
+        print("  history [проект] [--limit N] [--full]")
         print("    Показать историю сессий")
         print("  stats [проект]")
         print("    Показать статистику сессий\n")
@@ -1230,13 +1273,19 @@ class CLI:
         print("  help")
         print("    Показать эту справку")
         print("  version")
-        print("    Показать версию\n")
+        print("    Показать версию")
+        print("  completion [bash|zsh|fish]")
+        print("    Сгенерировать скрипт автодополнения\n")
 
         print("ОБЩИЕ ФЛАГИ:")
         print("  --force, -y")
         print("    Пропустить интерактивные подтверждения")
         print("  --no-tests")
-        print("    Пропустить запуск тестов при start/status\n")
+        print("    Пропустить запуск тестов при start/status")
+        print("  --diff")
+        print("    Показать полный diff при session end")
+        print("  --full")
+        print("    Полный текст без обрезки в history\n")
 
         print("ПРИМЕРЫ:")
         print("  # Добавить проект")
@@ -1252,6 +1301,165 @@ class CLI:
         print("  session status\n")
 
         return 0
+
+    def cmd_completion(self, args: List[str]) -> int:
+        """Сгенерировать скрипт автодополнения для shell."""
+        shell = "bash"
+        if args and args[0] in ("bash", "zsh", "fish"):
+            shell = args[0]
+
+        if shell == "bash":
+            self._print_bash_completion()
+        elif shell == "zsh":
+            self._print_zsh_completion()
+        elif shell == "fish":
+            self._print_fish_completion()
+
+        return 0
+
+    def _print_bash_completion(self) -> None:
+        """Bash completion script."""
+        print("""# Session Manager — Bash автодополнение
+# Добавьте в ~/.bashrc:
+#   source <(session completion bash)
+
+_session_completion() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local commands="project start end abort ls resume edit status history stats help version completion"
+    local project_commands="add list remove info"
+
+    if [[ ${COMP_CWORD} -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "${commands}" -- "${cur}") )
+    elif [[ ${COMP_WORDS[1]} == "project" && ${COMP_CWORD} -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "${project_commands}" -- "${cur}") )
+    elif [[ ${COMP_WORDS[1]} =~ ^(start|end|abort|resume|status|history|stats|edit|project)$ ]]; then
+        # Автодополнение имён проектов
+        local projects
+        projects=$(python3 -c "
+import json, pathlib
+config = pathlib.Path.home() / '.session_manager' / 'config.json'
+if config.exists():
+    data = json.loads(config.read_text())
+    for name, info in data.get('projects', {}).items():
+        print(name)
+        if info.get('alias'):
+            print(info['alias'])
+" 2>/dev/null)
+        COMPREPLY=( $(compgen -W "${projects}" -- "${cur}") )
+    else
+        COMPREPLY=( $(compgen -W "--force -y --no-tests --diff --full --limit" -- "${cur}") )
+    fi
+}
+complete -F _session_completion session""")
+
+    def _print_zsh_completion(self) -> None:
+        """Zsh completion script."""
+        print("""# Session Manager — Zsh автодополнение
+# Добавьте в ~/.zshrc:
+#   eval "$(session completion zsh)"
+
+#compdef session
+
+_session() {
+    local -a commands
+    commands=(
+        'project:Управление проектами'
+        'start:Начать сессию'
+        'end:Завершить сессию'
+        'abort:Принудительно завершить'
+        'ls:Список активных сессий'
+        'resume:Продолжить сессию'
+        'edit:Редактировать сессию'
+        'status:Показать статус'
+        'history:История сессий'
+        'stats:Статистика'
+        'help:Справка'
+        'version:Версия'
+        'completion:Генерация автодополнения'
+    )
+
+    local -a project_cmds
+    project_cmds=(
+        'add:Добавить проект'
+        'list:Список проектов'
+        'remove:Удалить проект'
+        'info:Информация о проекте'
+    )
+
+    local -a projects
+    projects=("${(@f)$(python3 -c \"
+import json, pathlib
+config = pathlib.Path.home() / '.session_manager' / 'config.json'
+if config.exists():
+    data = json.loads(config.read_text())
+    for name in data.get('projects', {}):
+        print(name)
+\" 2>/dev/null)}")
+
+    _arguments \\
+        '1: :->command' \\
+        '*: :->args' \\
+        '--force[Пропустить подтверждения]' \\
+        '--no-tests[Пропустить тесты]' \\
+        '--diff[Показать diff]' \\
+        '--full[Полный текст]' && return 0
+
+    case $state in
+        command)
+            _describe 'command' commands
+            ;;
+        args)
+            case $words[2] in
+                project)
+                    _describe 'подкоманда' project_cmds
+                    ;;
+                start|end|abort|resume|status|history|stats|edit)
+                    _describe 'проект' projects
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_session""")
+
+    def _print_fish_completion(self) -> None:
+        """Fish completion script."""
+        print("""# Session Manager — Fish автодополнение
+# Добавьте в ~/.config/fish/completions/session.fish
+
+complete -c session -n "__fish_use_subcommand" -a "project" -d "Управление проектами"
+complete -c session -n "__fish_use_subcommand" -a "start" -d "Начать сессию"
+complete -c session -n "__fish_use_subcommand" -a "end" -d "Завершить сессию"
+complete -c session -n "__fish_use_subcommand" -a "abort" -d "Принудительно завершить"
+complete -c session -n "__fish_use_subcommand" -a "ls" -d "Список активных сессий"
+complete -c session -n "__fish_use_subcommand" -a "resume" -d "Продолжить сессию"
+complete -c session -n "__fish_use_subcommand" -a "edit" -d "Редактировать сессию"
+complete -c session -n "__fish_use_subcommand" -a "status" -d "Показать статус"
+complete -c session -n "__fish_use_subcommand" -a "history" -d "История сессий"
+complete -c session -n "__fish_use_subcommand" -a "stats" -d "Статистика"
+complete -c session -n "__fish_use_subcommand" -a "help" -d "Справка"
+complete -c session -n "__fish_use_subcommand" -a "version" -d "Версия"
+
+complete -c session -n "__fish_seen_subcommand_from project" -a "add" -d "Добавить проект"
+complete -c session -n "__fish_seen_subcommand_from project" -a "list" -d "Список проектов"
+complete -c session -n "__fish_seen_subcommand_from project" -a "remove" -d "Удалить проект"
+complete -c session -n "__fish_seen_subcommand_from project" -a "info" -d "Информация"
+
+complete -c session -n "__fish_seen_subcommand_from start end abort resume status history stats edit" -a "(python3 -c \\"
+import json, pathlib
+config = pathlib.Path.home() / '.session_manager' / 'config.json'
+if config.exists():
+    data = json.loads(config.read_text())
+    for name in data.get('projects', {}):
+        print(name)
+\\" 2>/dev/null)" -d "Проект"
+
+complete -c session -s f -l force -d "Пропустить подтверждения"
+complete -c session -l no-tests -d "Пропустить тесты"
+complete -c session -l diff -d "Показать diff"
+complete -c session -l full -d "Полный текст"
+""")
 
     def show_version(self, args: List[str] = None) -> int:
         """Показать информацию о версии."""

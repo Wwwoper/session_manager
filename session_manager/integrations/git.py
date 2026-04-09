@@ -275,6 +275,62 @@ class GitIntegration:
 
         return None
 
+    def get_diff(self) -> Optional[str]:
+        """
+        Получить полный diff незакоммиченных изменений.
+
+        Returns:
+            Вывод git diff или None, если недоступно
+        """
+        if not self.is_git_repo():
+            return None
+
+        try:
+            result = subprocess.run(
+                ["git", "diff"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd=self.project_path,
+            )
+
+            if result.returncode == 0:
+                diff = result.stdout.strip()
+                return diff if diff else None
+
+        except (subprocess.SubprocessError, OSError):
+            pass
+
+        return None
+
+    def get_changed_files(self) -> list:
+        """
+        Получить список изменённых файлов.
+
+        Returns:
+            Список путей к изменённым файлам
+        """
+        if not self.is_git_repo():
+            return []
+
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                cwd=self.project_path,
+            )
+
+            if result.returncode == 0:
+                files = result.stdout.strip().split("\n")
+                return [f for f in files if f]
+
+        except (subprocess.SubprocessError, OSError):
+            pass
+
+        return []
+
     def get_git_info(self) -> dict:
         """
         Получить всю информацию о git за один вызов.
