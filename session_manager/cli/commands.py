@@ -1358,8 +1358,6 @@ complete -F _session_completion session""")
 # Добавьте в ~/.zshrc:
 #   eval "$(session completion zsh)"
 
-#compdef session
-
 _session() {
     local -a commands
     commands=(
@@ -1421,7 +1419,7 @@ if config.exists():
     esac
 }
 
-_session""")
+compdef _session session""")
 
     def _print_fish_completion(self) -> None:
         """Fish completion script."""
