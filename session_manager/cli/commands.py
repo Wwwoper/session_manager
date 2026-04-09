@@ -69,6 +69,8 @@ class CLI:
             "end": self.cmd_end,
             "abort": self.cmd_abort,
             "ls": self.cmd_ls,
+            "resume": self.cmd_resume,
+            "edit": self.cmd_edit,
             "status": self.cmd_status,
             "history": self.cmd_history,
             "stats": self.cmd_stats,
@@ -594,6 +596,260 @@ class CLI:
             print_error(f"Не удалось завершить сессию: {e}")
             return 1
 
+    def cmd_resume(self, args: List[str]) -> int:
+        """Продолжить работу на основе последней завершённой сессии."""
+        # Разбор аргументов: [--force|-y] [проект]
+        force = False
+        project_name = None
+
+        for arg in args:
+            if arg in ("--force", "-y"):
+                force = True
+            elif not arg.startswith("--"):
+                project_name = arg
+
+        # Если проект не указан — ищем активную или последнюю сессию
+        if project_name is None:
+            # Сначала проверим активную сессию
+            project = self._find_active_session()
+            if project:
+                print_warning("Уже есть активная сессия!")
+                print_info("Завершите её: session end или session abort")
+                return 1
+
+            # Нет активной — ищем current_project или автоопределяем
+            if self.config.current_project:
+                project = self.registry.get(self.config.current_project)
+                if project:
+                    self._cached_project = project
+            if not project:
+                project = self.registry.detect_current()
+                if project:
+                    print_info(f"📍 Автоопределен проект: {project.name}")
+                    self._cached_project = project
+        else:
+            project = self._resolve_project(project_name, auto_detect=True)
+
+        if not project:
+            return 1
+
+        try:
+            sm = SessionManager(project)
+
+            # Проверить активную сессию
+            if sm.get_active():
+                print_warning("Уже есть активная сессия!")
+                print_info("Завершите её: session end или session abort")
+                return 1
+
+            # Найти последнюю завершённую сессию
+            history = sm.get_history(limit=1)
+
+            if not history:
+                print_info(f"Нет завершённых сессий в проекте '{project.name}'")
+                print_info("Начните первую сессию: session start")
+                return 0
+
+            last_session = history[0]
+
+            # Показать контекст последней сессии
+            print_header(f"▶️  Продолжение сессии: {project.name}")
+
+            print_subsection("📋 Последняя сессия")
+            print(f"   Начало: {format_timestamp(last_session['start_time'])}")
+            if last_session.get("end_time"):
+                print(f"   Конец: {format_timestamp(last_session['end_time'])}")
+            print(f"   Длительность: {format_duration(last_session['duration'])}")
+
+            if last_session.get("description"):
+                print(f"   Описание: {last_session['description']}")
+
+            if last_session.get("summary"):
+                print(f"\n   Резюме: {last_session['summary']}")
+
+            next_action = last_session.get("next_action", "")
+
+            # Показать next_action
+            if next_action:
+                print(f"\n📌 Запланированное действие:")
+                print(f"   {next_action}")
+            else:
+                # Попробовать из PROJECT.md
+                cm = ContextManager(project)
+                next_action_md = cm.get_next_action_from_project_md()
+                if next_action_md:
+                    print(f"\n📌 Запланированное действие (из PROJECT.md):")
+                    print(f"   {next_action_md}")
+                    next_action = next_action_md
+
+            if force:
+                # Автоматически начать сессию с next_action как описанием
+                description = next_action if next_action else ""
+                session = sm.start(description=description)
+
+                git = GitIntegration(project.path)
+                if git.is_git_repo():
+                    sm.update_session_metadata(
+                        session["id"],
+                        branch=git.get_current_branch(),
+                        last_commit=git.get_last_commit(),
+                    )
+
+                print_success("\nСессия продолжена!")
+                print_info(f"ID сессии: {session['id'][:8]}...")
+                if description:
+                    print_info(f"Описание: {description}")
+
+                return 0
+
+            # Интерактивный режим
+            print("\nНачать новую сессию?")
+            print("(Enter — начать, описание из запланированного действия)")
+            response = input("Продолжить? (Y/n): ").strip().lower()
+
+            if response == "n":
+                print_info("Отменено")
+                return 0
+
+            description = next_action if next_action else ""
+            session = sm.start(description=description)
+
+            git = GitIntegration(project.path)
+            if git.is_git_repo():
+                sm.update_session_metadata(
+                    session["id"],
+                    branch=git.get_current_branch(),
+                    last_commit=git.get_last_commit(),
+                )
+
+            print_success("\nСессия продолжена!")
+            print_info(f"ID сессии: {session['id'][:8]}...")
+            if description:
+                print_info(f"Описание: {description}")
+
+            return 0
+
+        except SessionError as e:
+            print_error(f"Не удалось продолжить сессию: {e}")
+            return 1
+
+    def cmd_edit(self, args: List[str]) -> int:
+        """Редактировать завершённую сессию по ID."""
+        if len(args) < 1:
+            print_error("Использование: session edit <id> [проект]")
+            print_info("Найдите ID в истории: session history")
+            return 1
+
+        session_id = args[0]
+        project_name = args[1] if len(args) > 1 else None
+
+        # Разрешить проект
+        if project_name:
+            project = self._resolve_project(project_name, auto_detect=True)
+        else:
+            # Ищем сессию по ID во всех проектах
+            project = self._find_session_by_id(session_id)
+
+        if not project:
+            return 1
+
+        try:
+            sm = SessionManager(project)
+            session = sm.get_session_by_id(session_id)
+
+            if not session:
+                print_error(f"Сессия '{session_id[:8]}...' не найдена в проекте '{project.name}'")
+                return 1
+
+            if session.get("end_time") is None:
+                print_warning("Это активная сессия. Используйте session end для завершения.")
+                return 1
+
+            print_header(f"✏️  Редактирование сессии: {project.name}")
+
+            # Показать текущие значения
+            print_subsection("Текущие значения")
+            print(f"Описание: {session.get('description') or '-'}")
+            print(f"Резюме: {session.get('summary') or '-'}")
+            print(f"Следующее действие: {session.get('next_action') or '-'}")
+
+            # Запросить новые значения
+            print("\nНовые значения (Enter — оставить без изменений):")
+            new_description = input(f"Описание [{session.get('description') or '-'}]: ").strip()
+            new_summary = input(f"Резюме [{session.get('summary') or '-'}]: ").strip()
+            new_next_action = input(f"Следующее действие [{session.get('next_action') or '-'}]: ").strip()
+
+            # Обновить только если введены новые значения
+            updated = False
+            if new_description:
+                session["description"] = new_description
+                updated = True
+            if new_summary:
+                session["summary"] = new_summary
+                updated = True
+            if new_next_action:
+                session["next_action"] = new_next_action
+                updated = True
+
+            if not updated:
+                print_info("Ничего не изменено")
+                return 0
+
+            # Сохранить
+            try:
+                data = project.get_sessions_data()
+                for i, s in enumerate(data["sessions"]):
+                    if s["id"] == session_id:
+                        data["sessions"][i] = session
+                        break
+                project.save_sessions_data(data)
+            except ProjectError as e:
+                raise SessionError(f"Не удалось сохранить изменения: {e}")
+
+            print_success("Сессия обновлена!")
+            return 0
+
+        except SessionError as e:
+            print_error(f"Ошибка: {e}")
+            return 1
+
+    def _find_session_by_id(self, session_id: str) -> Optional[Project]:
+        """
+        Найти проект по ID сессии.
+
+        Возвращает:
+            Project или None
+        """
+        # Проверить текущий/кэшированный проект первым
+        if self._cached_project:
+            sm = SessionManager(self._cached_project)
+            if sm.get_session_by_id(session_id):
+                return self._cached_project
+
+        if self.config.current_project:
+            project = self.registry.get(self.config.current_project)
+            if project:
+                sm = SessionManager(project)
+                if sm.get_session_by_id(session_id):
+                    self._cached_project = project
+                    return project
+
+        # Искать во всех проектах
+        projects = self.registry.list(sort_by_usage=True)
+        for proj_info in projects:
+            project = self.registry.get(proj_info.name)
+            if not project:
+                continue
+
+            sm = SessionManager(project)
+            if sm.get_session_by_id(session_id):
+                self._cached_project = project
+                return project
+
+        print_error(f"Сессия '{session_id[:8]}...' не найдена ни в одном проекте")
+        print_info("Укажите проект явно: session edit <id> <проект>")
+        return None
+
     def cmd_status(self, args: List[str]) -> int:
         """Показать статус проекта."""
         # Разбор аргументов: [--no-tests] [проект]
@@ -957,6 +1213,10 @@ class CLI:
         print("    Завершить активную сессию")
         print("  abort [проект]")
         print("    Принудительно завершить без вопросов")
+        print("  resume [проект] [--force|-y]")
+        print("    Продолжить сессию на основе последней")
+        print("  edit <id> [проект]")
+        print("    Редактировать завершённую сессию")
         print("  ls")
         print("    Все активные сессии")
         print("  status [проект] [--no-tests]")
