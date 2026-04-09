@@ -502,3 +502,122 @@ class TestP1Improvements:
         assert "Начните сессию" in captured.out
 
 
+class TestP2Improvements:
+    """Тесты улучшений P2"""
+
+    @pytest.fixture
+    def cli(self, tmp_path, monkeypatch):
+        """Создать экземпляр CLI"""
+        storage_dir = tmp_path / ".session_manager"
+
+        monkeypatch.setattr(
+            "session_manager.core.config.get_config_file",
+            lambda: storage_dir / "config.json",
+        )
+        monkeypatch.setattr(
+            "session_manager.core.config.ensure_storage_structure", lambda: None
+        )
+        monkeypatch.setattr(
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
+        )
+
+        config = GlobalConfig()
+        config.load()
+        registry = ProjectRegistry(config)
+
+        return CLI(config, registry)
+
+    def test_resume_no_history(self, cli, tmp_path, capsys):
+        """Тест: session resume без истории сессий"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        result = cli.cmd_resume(["myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Нет завершённых сессий" in captured.out
+
+    def test_resume_with_history(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест: session resume с историей"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+        from datetime import datetime
+
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Создать завершённую сессию
+        project = Project("myproject", str(project_path))
+        sm = SessionManager(project)
+        session = sm.start(description="Первая сессия")
+        active = sm.get_active()
+        active["end_time"] = datetime.now().isoformat()
+        active["duration"] = 1800
+        active["summary"] = "Сделал работу"
+        active["next_action"] = "Продолжить работу"
+        data = project.get_sessions_data()
+        for i, s in enumerate(data["sessions"]):
+            if s["id"] == active["id"]:
+                data["sessions"][i] = active
+                break
+        data["active_session"] = None
+        project.save_sessions_data(data)
+
+        # Продолжить с --force (без интерактивных вопросов)
+        result = cli.cmd_resume(["--force", "myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Продолжение сессии" in captured.out
+        assert "Сделал работу" in captured.out
+        assert "Продолжить работу" in captured.out
+        assert "Сессия продолжена" in captured.out
+
+    def test_edit_session(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест: session edit <id>"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+        from datetime import datetime
+
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Создать завершённую сессию
+        project = Project("myproject", str(project_path))
+        sm = SessionManager(project)
+        session = sm.start(description="Старое описание")
+        session_id = session["id"]
+        active = sm.get_active()
+        active["end_time"] = datetime.now().isoformat()
+        active["duration"] = 3600
+        active["summary"] = "Старое резюме"
+        active["next_action"] = "Старое действие"
+        data = project.get_sessions_data()
+        for i, s in enumerate(data["sessions"]):
+            if s["id"] == active["id"]:
+                data["sessions"][i] = active
+                break
+        data["active_session"] = None
+        project.save_sessions_data(data)
+
+        # Редактировать с имитацией ввода
+        monkeypatch.setattr("builtins.input", lambda prompt: "Новое значение")
+
+        result = cli.cmd_edit([session_id, "myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Сессия обновлена" in captured.out
+
+        # Проверить что данные обновлены
+        updated = sm.get_session_by_id(session_id)
+        assert updated["description"] == "Новое значение"
+        assert updated["summary"] == "Новое значение"
+        assert updated["next_action"] == "Новое значение"
+
+
+
