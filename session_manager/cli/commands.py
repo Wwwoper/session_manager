@@ -310,10 +310,16 @@ class CLI:
         """Завершить активную сессию."""
         # Получить проект (args[0] если передан)
         project_name = args[0] if args else None
-        project = self._resolve_project(project_name, auto_detect=True)
 
-        if not project:
-            return 1
+        # Если проект не указан явно — ищем активную сессию среди всех проектов
+        if project_name is None:
+            project = self._find_active_session()
+            if not project:
+                return 1
+        else:
+            project = self._resolve_project(project_name, auto_detect=True)
+            if not project:
+                return 1
 
         try:
             sm = SessionManager(project)
@@ -553,6 +559,30 @@ class CLI:
         print("  3. Установить текущий проект: session project add <название> <путь>")
         print()
         print("Список всех проектов: session project list")
+
+    def _find_active_session(self) -> Optional[Project]:
+        """
+        Найти проект с активной сессией среди всех проектов.
+
+        Возвращает:
+            Project с активной сессией или None
+        """
+        projects = self.registry.list(sort_by_usage=True)
+
+        for project_info in projects:
+            project = self.registry.get(project_info.name)
+            if not project:
+                continue
+
+            sm = SessionManager(project)
+            if sm.get_active():
+                print_info(f"🔍 Найдена активная сессия в проекте: {project.name}")
+                self._cached_project = project
+                return project
+
+        print_warning("Нет активной сессии ни в одном проекте")
+        print_info("Начните сессию с помощью: session start [проект]")
+        return None
 
     def _show_last_context(self, project: Project) -> None:
         """Показать последний сохраненный контекст."""
