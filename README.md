@@ -131,20 +131,74 @@ session project remove <name>
 
 ```bash
 # Начать новую сессию
-session start [project] [description]
+session start [проект] [описание]
 
-# Завершить активную сессию
-session end [project]
+# Начать без запуска тестов (быстро для больших проектов)
+session start myproject --no-tests
 
-# Показать текущий статус
-session status [project]
+# Завершить активную сессию (интерактивно)
+session end [проект]
+
+# Завершить без вопросов (для скриптов)
+session end --force
+session end -y
+
+# Завершить и показать полный diff изменений
+session end --diff
+
+# Принудительно завершить без резюме
+session abort [проект]
+
+# Продолжить на основе последней сессии
+session resume [проект]
+
+# Продолжить без подтверждения
+session resume --force
+
+# Редактировать завершённую сессию
+session edit <id> [проект]
+
+# Все активные сессии
+session ls
+
+# Текущий статус
+session status [проект]
+
+# Статус без тестов
+session status --no-tests
 
 # История сессий
-session history [project] [--limit N]
+session history [проект] [--limit N]
+
+# История с полным текстом (без обрезки)
+session history --full
 
 # Статистика
-session stats [project]
+session stats [проект]
 ```
+
+### Shell автодополнение
+
+```bash
+# Bash — добавьте в ~/.bashrc:
+source <(session completion bash)
+
+# Zsh — добавьте в ~/.zshrc:
+eval "$(session completion zsh)"
+
+# Fish — добавьте в ~/.config/fish/completions/session.fish:
+session completion fish
+```
+
+### Флаги
+
+| Флаг | Описание | Команды |
+|------|----------|---------|
+| `--force`, `-y` | Пропустить интерактивные подтверждения | `start`, `end`, `resume`, `project remove` |
+| `--no-tests` | Пропустить запуск тестов | `start`, `status` |
+| `--diff` | Показать полный git diff | `end` |
+| `--full` | Полный текст без обрезки | `history` |
+| `--limit N` | Количество записей | `history` |
 
 ### Дополнительные команды
 
@@ -154,6 +208,9 @@ session help
 
 # Версия
 session version
+
+# Сгенерировать скрипт автодополнения
+session completion [bash|zsh|fish]
 ```
 
 ## 💡 Примеры использования
@@ -232,6 +289,92 @@ cd ~/projects/myapp
 session start    # Автоматически определит проект myapp
 session status
 session end
+```
+
+### Сценарий 5: Быстрое завершение из любого каталога
+
+```bash
+# Вы начали сессию в одном проекте, а завершаете из другого каталога
+cd ~/some/other/directory
+session end    # Автоматически найдёт активную сессию
+
+# Или завершите без вопросов (для скриптов)
+session end --force
+```
+
+### Сценарий 6: Продолжение работы
+
+```bash
+# Показать контекст последней сессии и продолжить
+session resume myapp
+
+# Session Manager покажет:
+# ▶️ Продолжение сессии: myapp
+# 
+# 📋 Последняя сессия
+#    Резюме: Implemented bcrypt hashing
+# 
+# 📌 Запланированное действие:
+#    Add authentication middleware
+
+# Начать сессию с этим описанием автоматически
+session resume --force myapp
+```
+
+### Сценарий 7: Быстрый старт без тестов
+
+```bash
+# Для больших проектов можно пропустить запуск тестов
+session start myapp --no-tests
+
+# То же для статуса
+session status --no-tests
+```
+
+### Сценарий 8: Все активные сессии
+
+```bash
+# Посмотреть все активные сессии сразу
+session ls
+
+# Вывод:
+# 🔍 Активные сессии
+# 
+# 1. webapp (web)
+#    Начата: 2025-01-22 10:00:00
+#    Длительность: 2ч 30м
+#    Описание: Implement user authentication
+#    Ветка: feature/auth
+# 
+# 2. mobile-app (mob)
+#    Начата: 2025-01-22 14:00:00
+#    Длительность: 45м
+# 
+# Всего активных: 2
+```
+
+### Сценарий 9: Редактирование сессии
+
+```bash
+# Исправить резюме или описание после завершения
+session edit abc12345 myapp
+
+# Интерактивные промпты с текущими значениями:
+# Описание [Implement user auth]: Add authentication with JWT
+# Резюме [Done]: Implemented JWT authentication and password hashing
+# Следующее действие [Add middleware]: Write tests for auth middleware
+```
+
+### Сценарий 10: Shell автодополнение
+
+```bash
+# Добавьте автодополнение в bash
+source <(session completion bash)
+
+# Теперь работает tab-автодополнение:
+# session [Tab] → abort edit end help history ls project resume start stats status version
+# session start [Tab] → myapp notes webapp mobile
+# session project [Tab] → add list info remove
 ```
 
 ## 🗂️ Структура данных
