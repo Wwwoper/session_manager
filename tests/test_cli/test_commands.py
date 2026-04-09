@@ -398,3 +398,107 @@ class TestCLIForceFlags:
         # --force не должен показывать контекст
         assert "Запуск новой сессии" not in captured.out
 
+
+class TestP1Improvements:
+    """Тесты улучшений P1"""
+
+    @pytest.fixture
+    def cli(self, tmp_path, monkeypatch):
+        """Создать экземпляр CLI"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+
+        storage_dir = tmp_path / ".session_manager"
+
+        monkeypatch.setattr(
+            "session_manager.core.config.get_config_file",
+            lambda: storage_dir / "config.json",
+        )
+        monkeypatch.setattr(
+            "session_manager.core.config.ensure_storage_structure", lambda: None
+        )
+        monkeypatch.setattr(
+            "session_manager.utils.paths.get_storage_dir", lambda: storage_dir
+        )
+
+        config = GlobalConfig()
+        config.load()
+        registry = ProjectRegistry(config)
+
+        return CLI(config, registry)
+
+    def test_status_shows_today_total_time(self, cli, tmp_path, capsys, monkeypatch):
+        """Тест: session status показывает общее время за сегодня"""
+        from session_manager.core.project import Project
+        from session_manager.core.session import SessionManager
+        from datetime import datetime, timedelta
+
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        # Начать и завершить сессию сегодня
+        project = Project("myproject", str(project_path))
+        sm = SessionManager(project)
+        session = sm.start(description="Тест")
+
+        # Завершить сессию с известной длительностью (3600 сек = 1ч)
+        active = sm.get_active()
+        active["end_time"] = datetime.now().isoformat()
+        active["duration"] = 3600
+        active["summary"] = "test"
+        active["next_action"] = ""
+        data = project.get_sessions_data()
+        for i, s in enumerate(data["sessions"]):
+            if s["id"] == active["id"]:
+                data["sessions"][i] = active
+                break
+        data["active_session"] = None
+        project.save_sessions_data(data)
+
+        # Проверить статус
+        result = cli.cmd_status(["myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Всего за сегодня" in captured.out
+        assert "1ч" in captured.out
+
+    def test_start_no_tests_flag(self, cli, tmp_path, capsys):
+        """Тест: session start --no-tests пропускает тесты"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        result = cli.cmd_start(["--no-tests", "myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Сессия начата" in captured.out
+        assert "Тесты пропущены" in captured.out
+
+    def test_status_no_tests_flag(self, cli, tmp_path, capsys):
+        """Тест: session status --no-tests пропускает тесты"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        result = cli.cmd_status(["--no-tests", "myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Тесты пропущены" in captured.out
+
+    def test_status_no_active_session_hint(self, cli, tmp_path, capsys):
+        """Тест: session status без активной сессии показывает подсказку"""
+        project_path = tmp_path / "myproject"
+        project_path.mkdir()
+        cli.project_add(["myproject", str(project_path)])
+
+        result = cli.cmd_status(["myproject"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Начните сессию" in captured.out
+
+

@@ -322,13 +322,16 @@ class CLI:
 
     def cmd_start(self, args: List[str]) -> int:
         """Начать новую сессию."""
-        # Разбор аргументов: [--force|-y] [проект] [описание]
+        # Разбор аргументов: [--force|-y] [--no-tests] [проект] [описание]
         force = False
+        no_tests = False
         remaining_args = []
 
         for arg in args:
             if arg in ("--force", "-y"):
                 force = True
+            elif arg == "--no-tests":
+                no_tests = True
             else:
                 remaining_args.append(arg)
 
@@ -373,8 +376,11 @@ class CLI:
                 # Показать задачи GitHub
                 self._show_github_issues(project)
 
-                # Запустить тесты
-                self._show_test_status(project)
+                # Запустить тесты (если не пропущено)
+                if not no_tests:
+                    self._show_test_status(project)
+                else:
+                    print_info("⏩ Тесты пропущены (--no-tests)")
 
             # Запустить сессию
             session = sm.start(description=description)
@@ -590,8 +596,15 @@ class CLI:
 
     def cmd_status(self, args: List[str]) -> int:
         """Показать статус проекта."""
-        # Получить проект
-        project_name = args[0] if args else None
+        # Разбор аргументов: [--no-tests] [проект]
+        no_tests = False
+        project_name = None
+
+        for arg in args:
+            if arg == "--no-tests":
+                no_tests = True
+            elif not arg.startswith("--"):
+                project_name = arg
 
         # Если проект не указан — ищем активную сессию, затем current_project
         if project_name is None:
@@ -639,7 +652,15 @@ class CLI:
             duration = int((datetime.now() - start).total_seconds())
             print(f"Продолжительность: {format_duration(duration)}")
         else:
-            print("Нет активной сессии\n")
+            print("Нет активной сессии")
+            print_info("Начните сессию: session start [проект]")
+            print()
+
+        # Общее время за сегодня
+        today_time = sm.get_total_time_today()
+        if today_time > 0:
+            print_subsection("⏱️  Всего за сегодня")
+            print(f"   {format_duration(today_time)}\n")
 
         # Последний контекст
         self._show_last_context(project)
@@ -648,7 +669,10 @@ class CLI:
         self._show_git_status(project)
 
         # Статус тестов
-        self._show_test_status(project)
+        if not no_tests:
+            self._show_test_status(project)
+        else:
+            print_info("⏩ Тесты пропущены (--no-tests)")
 
         return 0
 
@@ -927,7 +951,7 @@ class CLI:
         print("    Показать информацию о проекте\n")
 
         print("КОМАНДЫ СЕССИЙ:")
-        print("  start [проект] [описание]")
+        print("  start [проект] [описание] [--no-tests]")
         print("    Начать новую сессию")
         print("  end [проект] [--force|-y]")
         print("    Завершить активную сессию")
@@ -935,7 +959,7 @@ class CLI:
         print("    Принудительно завершить без вопросов")
         print("  ls")
         print("    Все активные сессии")
-        print("  status [проект]")
+        print("  status [проект] [--no-tests]")
         print("    Показать текущий статус")
         print("  history [проект] [--limit N]")
         print("    Показать историю сессий")
@@ -950,7 +974,9 @@ class CLI:
 
         print("ОБЩИЕ ФЛАГИ:")
         print("  --force, -y")
-        print("    Пропустить интерактивные подтверждения\n")
+        print("    Пропустить интерактивные подтверждения")
+        print("  --no-tests")
+        print("    Пропустить запуск тестов при start/status\n")
 
         print("ПРИМЕРЫ:")
         print("  # Добавить проект")
