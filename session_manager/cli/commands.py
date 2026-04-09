@@ -388,7 +388,30 @@ class CLI:
         """Показать статус проекта."""
         # Получить проект
         project_name = args[0] if args else None
-        project = self._resolve_project(project_name, auto_detect=True)
+
+        # Если проект не указан — ищем активную сессию, затем current_project
+        if project_name is None:
+            project = self._find_active_session()
+            if not project:
+                # Если нет активной сессии — пробуем current_project
+                if self.config.current_project:
+                    project = self.registry.get(self.config.current_project)
+                    if project:
+                        self._cached_project = project
+                    else:
+                        # Попробовать автоопределение
+                        project = self.registry.detect_current()
+                        if project:
+                            print_info(f"📍 Автоопределен проект: {project.name}")
+                            self._cached_project = project
+                if not project:
+                    # Попробовать автоопределение
+                    project = self.registry.detect_current()
+                    if project:
+                        print_info(f"📍 Автоопределен проект: {project.name}")
+                        self._cached_project = project
+        else:
+            project = self._resolve_project(project_name, auto_detect=True)
 
         if not project:
             return 1
@@ -449,7 +472,22 @@ class CLI:
                 i += 1
 
         # Получить проект
-        project = self._resolve_project(project_name, auto_detect=True)
+        if project_name is None:
+            project = self._find_active_session()
+            if not project:
+                # Если нет активной сессии — пробуем current_project
+                if self.config.current_project:
+                    project = self.registry.get(self.config.current_project)
+                    if project:
+                        self._cached_project = project
+                if not project:
+                    project = self.registry.detect_current()
+                    if project:
+                        print_info(f"📍 Автоопределен проект: {project.name}")
+                        self._cached_project = project
+        else:
+            project = self._resolve_project(project_name, auto_detect=True)
+
         if not project:
             return 1
 
@@ -482,7 +520,22 @@ class CLI:
         """Показать статистику сессий."""
         # Получить проект
         project_name = args[0] if args else None
-        project = self._resolve_project(project_name, auto_detect=True)
+
+        if project_name is None:
+            project = self._find_active_session()
+            if not project:
+                # Если нет активной сессии — пробуем current_project
+                if self.config.current_project:
+                    project = self.registry.get(self.config.current_project)
+                    if project:
+                        self._cached_project = project
+                if not project:
+                    project = self.registry.detect_current()
+                    if project:
+                        print_info(f"📍 Автоопределен проект: {project.name}")
+                        self._cached_project = project
+        else:
+            project = self._resolve_project(project_name, auto_detect=True)
 
         if not project:
             return 1
