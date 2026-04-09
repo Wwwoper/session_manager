@@ -398,7 +398,7 @@ class CLI:
                 )
 
             print_success("Сессия начата!")
-            print_info(f"ID сессии: {session['id'][:8]}...")
+            print_info(f"ID сессии: {session['id']}")
 
             return 0
 
@@ -522,6 +522,7 @@ class CLI:
 
         print_success("\nСессия завершена!")
         print_info(f"Продолжительность: {format_duration(completed['duration'])}")
+        print_info(f"ID сессии: {completed['id']}")
         print_info(f"Снимок сохранен: {Path(snapshot_path).name}")
         print_info("PROJECT.md обновлен")
 
@@ -736,7 +737,7 @@ class CLI:
                     )
 
                 print_success("\nСессия продолжена!")
-                print_info(f"ID сессии: {session['id'][:8]}...")
+                print_info(f"ID сессии: {session['id']}")
                 if description:
                     print_info(f"Описание: {description}")
 
@@ -763,7 +764,7 @@ class CLI:
                 )
 
             print_success("\nСессия продолжена!")
-            print_info(f"ID сессии: {session['id'][:8]}...")
+            print_info(f"ID сессии: {session['id']}")
             if description:
                 print_info(f"Описание: {description}")
 
@@ -783,6 +784,11 @@ class CLI:
         session_id = args[0]
         project_name = args[1] if len(args) > 1 else None
 
+        # Поддержать сокращённый ID (первые 8 символов)
+        if len(session_id) < 8:
+            print_error("ID сессии слишком короткий (минимум 8 символов)")
+            return 1
+
         # Разрешить проект
         if project_name:
             project = self._resolve_project(project_name, auto_detect=True)
@@ -795,7 +801,8 @@ class CLI:
 
         try:
             sm = SessionManager(project)
-            session = sm.get_session_by_id(session_id)
+            # Найти по частичному ID
+            session = self._find_session_partial(sm, session_id)
 
             if not session:
                 print_error(f"Сессия '{session_id[:8]}...' не найдена в проекте '{project.name}'")
@@ -855,7 +862,7 @@ class CLI:
 
     def _find_session_by_id(self, session_id: str) -> Optional[Project]:
         """
-        Найти проект по ID сессии.
+        Найти проект по ID сессии (поддержка сокращённого ID).
 
         Возвращает:
             Project или None
@@ -863,14 +870,16 @@ class CLI:
         # Проверить текущий/кэшированный проект первым
         if self._cached_project:
             sm = SessionManager(self._cached_project)
-            if sm.get_session_by_id(session_id):
+            session = self._find_session_partial(sm, session_id)
+            if session:
                 return self._cached_project
 
         if self.config.current_project:
             project = self.registry.get(self.config.current_project)
             if project:
                 sm = SessionManager(project)
-                if sm.get_session_by_id(session_id):
+                session = self._find_session_partial(sm, session_id)
+                if session:
                     self._cached_project = project
                     return project
 
@@ -882,12 +891,21 @@ class CLI:
                 continue
 
             sm = SessionManager(project)
-            if sm.get_session_by_id(session_id):
-                self._cached_project = project
+            session = self._find_session_partial(sm, session_id)
+            if session:
+                # Обновить session_id на полный
                 return project
 
         print_error(f"Сессия '{session_id[:8]}...' не найдена ни в одном проекте")
         print_info("Укажите проект явно: session edit <id> <проект>")
+        return None
+
+    def _find_session_partial(self, sm, session_id: str):
+        """Найти сессию по частичному ID."""
+        sessions = sm.get_all_sessions()
+        for s in sessions:
+            if s.get("id", "").startswith(session_id):
+                return s
         return None
 
     def cmd_status(self, args: List[str]) -> int:
@@ -1031,6 +1049,10 @@ class CLI:
 
         for i, session in enumerate(history, 1):
             print(f"\n{i}. Сессия")
+            sid = session['id'] if full else session['id'][:12]
+            if len(session['id']) > 12 and not full:
+                sid += "..."
+            print(f"   ID: {sid}")
             print(f"   Начата: {format_timestamp(session['start_time'])}")
             if session.get("end_time"):
                 print(f"   Завершена: {format_timestamp(session['end_time'])}")

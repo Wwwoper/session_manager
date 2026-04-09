@@ -683,6 +683,7 @@ class TestP2FinalImprovements:
         project = Project("myproject", str(project_path))
         sm = SessionManager(project)
         session = sm.start(description="A" * 200)
+        full_id = session["id"]
         active = sm.get_active()
         active["end_time"] = datetime.now().isoformat()
         active["duration"] = 3600
@@ -696,15 +697,18 @@ class TestP2FinalImprovements:
         data["active_session"] = None
         project.save_sessions_data(data)
 
-        # Без --full
+        # Без --full — ID обрезан
         result = cli.cmd_history(["myproject"])
         captured = capsys.readouterr()
-        assert "..." in captured.out
+        assert "..." in captured.out  # ID обрезан
 
-        # С --full
+        # С --full — ID полный, текст полный
         result = cli.cmd_history(["myproject", "--full"])
         captured = capsys.readouterr()
-        assert "..." not in captured.out
+        assert full_id in captured.out  # полный ID в выводе
+        assert "A" * 200 in captured.out  # описание полностью
+        assert "B" * 200 in captured.out  # резюме полностью
+        assert "C" * 200 in captured.out  # next_action полностью
 
 
 
