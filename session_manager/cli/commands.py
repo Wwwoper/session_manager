@@ -635,8 +635,26 @@ class CLI:
             # Сначала проверим активную сессию
             project = self._find_active_session()
             if project:
+                # Показать контекст активной сессии
                 print_warning("Уже есть активная сессия!")
-                print_info("Завершите её: session end или session abort")
+                print()
+                print_subsection("📋 Активная сессия")
+                print(f"   Проект: {project.name}")
+                sm = SessionManager(project)
+                active = sm.get_active()
+                if active:
+                    print(f"   Начата: {format_timestamp(active['start_time'])}")
+                    if active.get("description"):
+                        print(f"   Описание: {active['description']}")
+                    from datetime import datetime
+                    start = datetime.fromisoformat(active["start_time"])
+                    duration = int((datetime.now() - start).total_seconds())
+                    print(f"   Длительность: {format_duration(duration)}")
+                print()
+                print_info("Варианты:")
+                print("  session end        — завершить активную сессию")
+                print("  session abort      — завершить без резюме")
+                print("  session resume <проект> — продолжить другой проект")
                 return 1
 
             # Нет активной — ищем current_project или автоопределяем

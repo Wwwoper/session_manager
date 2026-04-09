@@ -659,7 +659,7 @@ class TestP2FinalImprovements:
 
         assert result == 0
         captured = capsys.readouterr()
-        assert "#compdef session" in captured.out
+        assert "compdef _session session" in captured.out
 
     def test_completion_fish(self, cli, capsys):
         """Тест: session completion fish"""
