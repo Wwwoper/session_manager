@@ -17,10 +17,10 @@ Session Manager - Умное отслеживание сессий с сохра
     session status
 """
 __version__ = "0.1.0"
-__author__ = "Your Name"
-__email__ = "your.email@example.com"
+__author__ = "Wwwoper"
+__email__ = "rs.berenev@yandex.ru"
 __license__ = "MIT"
-# Core components will be imported here as they're developed
+# Здесь будут импортироваться основные компоненты по мере их разработки
 # from .core.session import SessionManager
 # from .core.config import GlobalConfig
 # from .core.project import Project
