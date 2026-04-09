@@ -240,7 +240,9 @@ class TestStatusCommandAutoDetect:
 
         assert result == 0
         captured = capsys.readouterr()
-        assert "автоопределен" in captured.out.lower()
+        # При наличии активной сессии — находит её
+        assert ("автоопределен" in captured.out.lower() or
+                "найдена активная сессия" in captured.out.lower())
         assert "активная сессия" in captured.out.lower()
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Session Manager - Main entry point
+Session Manager - Точка входа
 """
 
 import sys
@@ -13,40 +13,40 @@ from .utils.formatters import print_error, print_warning
 
 def main(args: list = None) -> int:
     """
-    Main entry point for Session Manager CLI
-    
-    Args:
-        args: Command line arguments (defaults to sys.argv[1:])
-        
-    Returns:
-        Exit code (0 for success, non-zero for errors)
+    Основная точка входа для CLI Session Manager
+
+    Аргументы:
+        args: Аргументы командной строки (по умолчанию sys.argv[1:])
+
+    Возвращает:
+        Код выхода (0 — успех, ненулевое — ошибка)
     """
     if args is None:
         args = sys.argv[1:]
-    
+
     try:
-        # Initialize configuration
+        # Инициализация конфигурации
         config = GlobalConfig()
         config.load()
-        
-        # Initialize project registry
+
+        # Инициализация реестра проектов
         registry = ProjectRegistry(config)
-        
-        # Initialize CLI
+
+        # Инициализация CLI
         cli = CLI(config, registry)
-        
-        # Run command
+
+        # Выполнение команды
         return cli.run(args)
-        
+
     except ConfigError as e:
-        print_error(f"Configuration error: {e}")
+        print_error(f"Ошибка конфигурации: {e}")
         return 1
     except KeyboardInterrupt:
         print("\n")
-        print_warning("Interrupted by user")
+        print_warning("Прервано пользователем")
         return 130
     except Exception as e:
-        print_error(f"Unexpected error: {e}")
+        print_error(f"Неожиданная ошибка: {e}")
         import traceback
         traceback.print_exc()
         return 1
